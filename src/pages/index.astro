@@ -1,0 +1,17 @@
+---
+import Layout from '../layouts/Layout.astro'
+---
+
+<Layout title="organicblue">
+  <main class="flex min-h-screen items-center justify-center bg-white">
+    <h1 id="hero" class="text-5xl font-bold tracking-tight text-slate-900 opacity-0">
+      organicblue
+    </h1>
+  </main>
+</Layout>
+
+<script>
+  import { gsap } from 'gsap'
+
+  gsap.to('#hero', { opacity: 1, y: 0, duration: 1, ease: 'power3.out', from: { y: 30 } })
+</script>
