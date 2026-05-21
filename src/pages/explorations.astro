@@ -46,15 +46,8 @@ const products = [
         side: img("ES2", "Side"),
         back: img("ES2", "Back"),
         onBodyImages: onBodyFor("ES2"),
-        description: "",
-    },
-    {
-        name: "ES.ST final render",
-        front: img("ESST", "Front"),
-        side: img("ESST", "Side"),
-        back: img("ESST", "Back"),
-        onBodyImages: onBodyFor("ESST"),
-        description: "",
+        description: `From the foundation we built, we wanted to push ahead further. We merged the front contrast panels into a single fluid form, allowing the bag to read as one continuous shape rather than an assembly of parts. Organic, considered, resolved.\n
+        Two things defined this prototype. Size came first: volume expanded to accommodate a wider range of gear. Then the back panel, sculpted to follow the natural geometry of the human spine, keeping only what makes contact and removing everything that doesn't. That same principle of reduction led to the prototype's most considered detail: a retractable hip belt. Essential when you're moving hard, invisible when you're not. Tucked into the back panel, it leaves a clean silhouette behind.`,
     },
     {
         name: "ES.RS final render",
@@ -62,7 +55,19 @@ const products = [
         side: img("ESRS", "Side"),
         back: img("ESRS", "Back"),
         onBodyImages: onBodyFor("ESRS"),
-        description: "",
+        description: `The hip belt raised a new question. What would it look like to develop two distinct versions of the same architecture, sharing a structure but tuned for entirely different lives? The answer came from Group B rally, where manufacturers built road-legal homologation versions of their competition cars. Two products, one DNA, two expressions.\n
+        ES.RS was built around a single idea: the minimum amount of equipment enabling maximum flow. Designed for fast-packing, covering long distances on foot in short windows of time, carrying only what is essential. Every decision followed from that intent.\n
+        The load sits in the thoracic zone, the upper back between the shoulder blades and along the spine. Carried here, weight is supported by the body's core. The hips stay free, fatigue is reduced, and bounce is naturally minimised. The straps are wider than conventional, distributing load evenly across the shoulders while doubling as a carry system for two 500ml flasks. Hydration stays accessible. The pack stays on`,
+    },
+    {
+        name: "ES.ST final render",
+        front: img("ESST", "Front"),
+        side: img("ESST", "Side"),
+        back: img("ESST", "Back"),
+        onBodyImages: onBodyFor("ESST"),
+        description: `Where the ES.RS was built for the trail, the ES.ST is its urban counterpart. The same chassis, the same vest straps, the same thoracic placement. But the surface language is entirely its own, drawn from two references that seem unlikely until they don't.\n
+        Moths are ancient creatures. Their wing geometry is precise, almost architectural, shaped over millennia to scatter the echolocation signals of hunting bats. The ES.ST borrows that logic of disruption. Rather than reading as a clean, contained silhouette, the pack introduces forms that interrupt expectation and open up new ways of understanding its shape.\n
+        Manta rays move differently. Built to glide through water across enormous distances with minimal effort, their design is one of nature's most elegant solutions to continuous movement. The ES.ST carries that same intention. Fitted to the thoracic zone, it moves with the body rather than against it, built for people who are always going somewhere.`,
     },
 ];
 ---
@@ -105,8 +110,8 @@ const products = [
             class="relative flex-shrink-0 w-screen h-screen bg-white overflow-hidden"
             style="scroll-snap-align: start;"
         >
-            <div class="dual-viewers absolute inset-0 flex">
-                <div class="relative w-1/2 h-full>
+            <div class="dual-viewers absolute inset-0 flex justify-center">
+                <div class="relative w-[38%] h-full">
                     <ProductViewer
                         name={products[2].name}
                         front={products[2].front}
@@ -115,7 +120,7 @@ const products = [
                         cartMode={true}
                     />
                 </div>
-                <div class="relative w-1/2 h-full">
+                <div class="relative w-[38%] h-full">
                     <ProductViewer
                         name={products[3].name}
                         front={products[3].front}
@@ -131,12 +136,12 @@ const products = [
     <!-- Pure click navigation zones -->
     <div
         id="nav-prev"
-        class="fixed left-0 top-0 w-20 h-screen z-40 cursor-pointer"
+        class="fixed left-0 top-0 w-40 h-screen z-40 cursor-pointer"
     >
     </div>
     <div
         id="nav-next"
-        class="fixed right-0 top-0 w-20 h-screen z-40 cursor-pointer"
+        class="fixed right-0 top-0 w-40 h-screen z-40 cursor-pointer"
     >
     </div>
 
@@ -148,7 +153,7 @@ const products = [
         {
             [0, 1, 2, 3, 4, 5].map((i) => (
                 <button
-                    class="page-dot text-sm tracking-normal text-black"
+                    class="page-dot text-[10px] tracking-normal px-0.5 py-0.5 transition-colors cursor-pointer hover:!bg-black/50 hover:!text-white"
                     data-idx={i}
                 >
                     {String(i + 1).padStart(2, "0")}
@@ -158,10 +163,45 @@ const products = [
     </div>
 
     <ImageOverlay />
+
+    <!-- Custom cursor label -->
+    <div
+        id="exp-cursor"
+        class="fixed top-0 left-0 pointer-events-none z-50 hidden font-sans text-sm mix-blend-difference"
+        style="transform: translate(-50%, -50%);"
+    >
+        <span id="exp-cursor-text" class="text-white/30">previous</span>
+    </div>
 </Layout>
 
 <script>
     import { gsap } from "gsap";
+
+    function scrambleText(el: HTMLElement, duration = 0.75) {
+        const final = el.textContent ?? "";
+        const chars = "00000000000";
+        const frames = Math.round(duration * 60);
+        let frame = 0;
+        function tick() {
+            frame++;
+            const progress = frame / frames;
+            let result = "";
+            for (let i = 0; i < final.length; i++) {
+                if (
+                    !/[a-zA-Z0-9]/.test(final[i]) ||
+                    i / final.length < progress
+                ) {
+                    result += final[i];
+                } else {
+                    result += chars[Math.floor(Math.random() * chars.length)];
+                }
+            }
+            el.textContent = result;
+            if (frame < frames) requestAnimationFrame(tick);
+            else el.textContent = final;
+        }
+        requestAnimationFrame(tick);
+    }
 
     document.addEventListener("astro:page-load", () => {
         const scroller = document.getElementById("exp-scroller");
@@ -175,7 +215,8 @@ const products = [
 
         function updateCounter(idx: number) {
             dots.forEach((dot, i) => {
-                dot.style.opacity = i === idx ? "0.5" : "0.3";
+                dot.style.color =
+                    i === idx ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.3)";
             });
         }
 
@@ -198,6 +239,13 @@ const products = [
             updateCounter(next);
 
             const content = getContent(sections[next]);
+            const labelEls = Array.from(
+                sections[next].querySelectorAll<HTMLElement>(
+                    ".product-name, .product-info-toggle, .product-cart-btn",
+                ),
+            );
+            labelEls.forEach((el) => (el.style.opacity = "0"));
+
             if (content) {
                 gsap.fromTo(
                     content,
@@ -206,8 +254,14 @@ const products = [
                         opacity: 1,
                         filter: "blur(0px)",
                         duration: 1,
-                        delay: 0.3,
-                        ease: "power3.out",
+                        delay: 0.1,
+                        ease: "power3.inut",
+                        onStart: () => {
+                            labelEls.forEach((el) => {
+                                el.style.opacity = "1";
+                                scrambleText(el);
+                            });
+                        },
                     },
                 );
             }
@@ -221,8 +275,8 @@ const products = [
                     {
                         width: "33.3%",
                         duration: 1,
-                        delay: 0.3,
-                        ease: "power3.out",
+                        delay: 0.1,
+                        ease: "power3.inOut",
                     },
                 );
             }
@@ -242,5 +296,36 @@ const products = [
         document
             .getElementById("nav-next")
             ?.addEventListener("click", () => navigateTo(currentIdx + 1));
+
+        // Custom cursor labels on click zones
+        const expCursor = document.getElementById(
+            "exp-cursor",
+        ) as HTMLElement | null;
+        const expCursorText = document.getElementById(
+            "exp-cursor-text",
+        ) as HTMLElement | null;
+
+        function attachCursor(selector: string, label: string) {
+            document.querySelectorAll<HTMLElement>(selector).forEach((el) => {
+                el.style.cursor = "none";
+                el.addEventListener("mouseenter", () => {
+                    if (expCursorText) expCursorText.textContent = label;
+                    expCursor?.classList.remove("hidden");
+                });
+                el.addEventListener("mouseleave", () => {
+                    expCursor?.classList.add("hidden");
+                });
+                el.addEventListener("mousemove", (e) => {
+                    if (!expCursor) return;
+                    expCursor.style.left = e.clientX + "px";
+                    expCursor.style.top = e.clientY + "px";
+                });
+            });
+        }
+
+        attachCursor("#nav-prev", "‹");
+        attachCursor("#nav-next", "›");
+        attachCursor(".product-prev", "‹");
+        attachCursor(".product-next", "›");
     });
 </script>

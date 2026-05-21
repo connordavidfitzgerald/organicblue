@@ -1,30 +1,58 @@
 ---
-import logoSrc from "../assets/svgs/ob-logo.svg";
+
 ---
 
 <nav
     id="navbar"
     transition:persist
-    class="fixed top-0 left-0 z-50 w-full spacing-padding grid grid-cols-12 items-center text-white pb-5 opacity-70 mix-blend-normal font-normal text-sm tracking-normal pt-5"
+    class="fixed top-0 left-0 z-50 w-full spacing-padding grid grid-cols-12 items-center text-white pb-5 opacity-70 font-normal text-xs tracking-[-1%] pt-5"
 >
     <div
         id="navbar-left"
         class="col-start-2 col-end-5 flex justify-between pl-5"
     >
-        <a href="/about">about</a>
-        <a href="/shop">shop</a>
+        <a
+            href="/about"
+            class="p-0.5 transition-colors hover:bg-black/40 hover:text-white"
+            >about</a
+        >
+        <a
+            href="/shop"
+            class="p-0.5 transition-colors hover:bg-black/40 hover:text-white"
+            >shop</a
+        >
     </div>
 
     <a href="/" class="col-start-6 col-end-8 flex justify-center">
-        <img src={logoSrc.src} alt="organicblue" class="h-6 w-auto" />
+        <svg
+            width="54"
+            height="32"
+            viewBox="0 0 54 32"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-6 w-auto"
+            aria-label="organicblue"
+        >
+            <path
+                d="M26.6406 0.00292969V0.138672L53.1602 31.4648H50.2959C46.5774 21.5941 37.3642 14.5998 26.5801 14.5703C15.7959 14.5998 6.58273 21.594 2.86426 31.4648H0L26.5195 0.138672V0.00292969L26.5225 0L26.5801 0.0673828L26.6377 0L26.6406 0.00292969Z"
+                fill="currentColor"></path>
+        </svg>
     </a>
 
     <div
         id="navbar-right"
         class="col-start-9 col-end-12 flex justify-between pr-5"
     >
-        <a href="/explorations">explorations</a>
-        <a href="/cart">cart</a>
+        <a
+            href="/explorations"
+            class="p-0.5 transition-colors hover:bg-black/40 hover:text-white"
+            >explorations</a
+        >
+        <a
+            href="/cart"
+            class="p-0.5 transition-colors hover:bg-black/40 hover:text-white"
+            >cart</a
+        >
     </div>
 </nav>
 
@@ -56,10 +84,10 @@ import logoSrc from "../assets/svgs/ob-logo.svg";
         right.classList.toggle("col-start-9", isHome);
         right.classList.toggle("col-end-12", isHome);
         right.classList.toggle("col-start-10", !isHome);
-        navbar.classList.toggle("mix-blend-normal", isHome);
-        navbar.classList.toggle("mix-blend-difference", !isHome);
-        navbar.classList.toggle("opacity-70", isHome);
-        navbar.classList.toggle("opacity-50", !isHome);
+        navbar.classList.toggle("text-white", isHome);
+        navbar.classList.toggle("text-[#000000]", !isHome);
+        navbar.classList.toggle("opacity-80", isHome);
+        navbar.classList.toggle("opacity-55", !isHome);
     }
 
     requestAnimationFrame(() => {

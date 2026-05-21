@@ -14,6 +14,10 @@ const imageUrls = Object.entries(imageModules)
     .map(([, url]) => url);
 ---
 
+<div
+    class="absolute inset-0 flex items-center justify-center pointer-events-none"
+>
+</div>
 <canvas
     id="web-canvas"
     data-images={JSON.stringify(imageUrls)}
@@ -50,7 +54,7 @@ const imageUrls = Object.entries(imageModules)
             0.1,
             100,
         );
-        camera.position.z = 6;
+        camera.position.z = 6.5;
 
         // ── Controls
         const controls = new OrbitControls(camera, canvas);
@@ -204,8 +208,8 @@ const imageUrls = Object.entries(imageModules)
                 if (!running) return;
                 rafId = requestAnimationFrame(tick);
                 controls.update();
-                if (Date.now() - lastInteractionTime > 2000)
-                    group.rotation.y += 0.003;
+                if (Date.now() - lastInteractionTime > 1000)
+                    group.rotation.y += 0.0015;
                 renderer.render(scene, camera);
             }
             tick();
