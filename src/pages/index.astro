@@ -1,17 +1,16 @@
 ---
-import Layout from '../layouts/Layout.astro'
+import Layout from "../layouts/Layout.astro";
 ---
 
-<Layout title="organicblue">
-  <main class="flex min-h-screen items-center justify-center bg-white">
-    <h1 id="hero" class="text-5xl font-bold tracking-tight text-slate-900 opacity-0">
-      organicblue
-    </h1>
-  </main>
+<Layout title="organicblue" isHome={true}>
+    <div class="fixed inset-0 -z-10 overflow-hidden">
+        <mux-player
+            playback-id="qDlRrWP8z9ZWKxN5PjJZath003lYoGgEgBQPtH4V15uk"
+            autoplay
+            muted
+            loop
+            playsinline
+            class="block w-full h-full"
+            style="--media-object-fit: cover; --controls: none;"></mux-player>
+    </div>
 </Layout>
-
-<script>
-  import { gsap } from 'gsap'
-
-  gsap.to('#hero', { opacity: 1, y: 0, duration: 1, ease: 'power3.out', from: { y: 30 } })
-</script>

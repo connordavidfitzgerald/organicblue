@@ -1,11 +1,14 @@
 ---
+import { ClientRouter } from 'astro:transitions'
 import '../styles/global.css'
+import Navbar from '../components/Navbar.astro'
 
 interface Props {
   title?: string
+  isHome?: boolean
 }
 
-const { title = 'organicblue' } = Astro.props
+const { title = 'organicblue', isHome = false } = Astro.props
 ---
 
 <html lang="en">
@@ -16,8 +19,11 @@ const { title = 'organicblue' } = Astro.props
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
+    <ClientRouter />
+    <script>import '@mux/mux-player'</script>
   </head>
-  <body>
+  <body data-page={isHome ? 'home' : 'inner'}>
+    <Navbar />
     <slot />
   </body>
 </html>

@@ -1,0 +1,203 @@
+---
+interface Props {
+    name: string;
+    front: string;
+    side: string;
+    back: string;
+    onBodyImages?: string[];
+    description?: string;
+    cartMode?: boolean;
+}
+
+const {
+    name,
+    front,
+    side,
+    back,
+    onBodyImages = [],
+    description = "",
+    cartMode = false,
+} = Astro.props;
+---
+
+<div
+    class="product-viewer absolute inset-0 flex"
+    data-front={front}
+    data-side={side}
+    data-back={back}
+>
+    <!-- Left half: product viewer centered -->
+    <div
+        class="product-left relative grow h-full flex flex-col items-center justify-center"
+    >
+        <!-- Click zones for cycling (blocked by overlay when info is open) -->
+        <div
+            class="product-prev absolute left-0 top-0 w-1/2 h-full z-10 cursor-pointer"
+        >
+        </div>
+        <div
+            class="product-next absolute right-0 top-0 w-1/2 h-full z-10 cursor-pointer"
+        >
+        </div>
+
+        <!-- Product image -->
+        <img
+            class="product-image relative z-0 block max-h-[500px] w-auto object-contain select-none pointer-events-none"
+            src={front}
+            alt={name}
+            draggable="false"
+        />
+
+        {
+            !cartMode && (
+                <>
+                    {/* Blur overlay */}
+                    <div
+                        class="product-overlay absolute inset-0 z-20 hidden cursor-pointer"
+                        style="background: rgba(255,255,255,0.10); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
+                    />
+                    {/* Info panel */}
+                    <div class="product-info-panel absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-130 hidden">
+                        <div style="background-color: #C8C8C8;">
+                            <p class="text-sm tracking-normal text-white leading-[100%] px-3 py-2.5">
+                                {name}
+                            </p>
+                        </div>
+                        {description && (
+                            <div style="background-color: #E1E1E1;">
+                                <p
+                                    class="text-sm tracking-normal leading-[125%] p-3 whitespace-pre-line"
+                                    style="color: rgba(0,0,0,0.4);"
+                                >
+                                    {description}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )
+        }
+
+        <!-- Name + action button — z-30 keeps them above the overlay -->
+        <div
+            class="relative z-30 flex flex-col gap-1.5 justify-center items-center mt-4"
+        >
+            <p class="text-sm tracking-normal text-black/40 leading-[100%]">
+                {name}
+            </p>
+            {
+                cartMode ? (
+                    <button class="product-cart-btn text-sm tracking-normal text-black/20 leading-[100%] bg-transparent border-0 p-0 cursor-pointer">
+                        + add to cart
+                    </button>
+                ) : (
+                    <button class="product-info-toggle text-sm tracking-normal text-black/20 leading-[100%] bg-transparent border-0 p-0 cursor-pointer">
+                        +info
+                    </button>
+                )
+            }
+        </div>
+    </div>
+
+    <!-- Right half: scrollable on-body images (hidden in cartMode) -->
+    {
+        !cartMode && (
+            <div class="on-body-scroll w-[33.3%] h-full overflow-y-scroll border-l border-black/40">
+                {onBodyImages.map((src) => (
+                    <img
+                        src={src}
+                        class="w-full h-auto object-cover object-center"
+                        draggable="false"
+                        alt=""
+                    />
+                ))}
+            </div>
+        )
+    }
+</div>
+
+<style>
+    .on-body-scroll::-webkit-scrollbar {
+        display: none;
+    }
+    .on-body-scroll {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+</style>
+
+<script>
+    function initViewer(viewer: Element) {
+        const img = viewer.querySelector(".product-image") as HTMLImageElement;
+        const dots = viewer.querySelectorAll(
+            ".product-dot",
+        ) as NodeListOf<HTMLElement>;
+        const overlay = viewer.querySelector(
+            ".product-overlay",
+        ) as HTMLElement | null;
+        const infoPanel = viewer.querySelector(
+            ".product-info-panel",
+        ) as HTMLElement | null;
+        const infoToggle = viewer.querySelector(
+            ".product-info-toggle",
+        ) as HTMLButtonElement | null;
+        const onBodyScroll = viewer.querySelector(".on-body-scroll");
+
+        const el = viewer as HTMLElement;
+        const views = [el.dataset.front!, el.dataset.side!, el.dataset.back!];
+        let currentView = 0;
+        let infoOpen = false;
+
+        function goTo(idx: number) {
+            currentView = ((idx % views.length) + views.length) % views.length;
+            img.src = views[currentView];
+            dots.forEach((dot, i) => {
+                dot.style.opacity = i === currentView ? "1" : "0.2";
+            });
+        }
+
+        function openInfo() {
+            if (!overlay || !infoPanel || !infoToggle) return;
+            infoOpen = true;
+            overlay.classList.remove("hidden");
+            infoPanel.classList.remove("hidden");
+            infoToggle.textContent = "close";
+        }
+
+        function closeInfo() {
+            if (!overlay || !infoPanel || !infoToggle) return;
+            infoOpen = false;
+            overlay.classList.add("hidden");
+            infoPanel.classList.add("hidden");
+            infoToggle.textContent = "+info";
+        }
+
+        infoToggle?.addEventListener("click", () => {
+            if (infoOpen) closeInfo();
+            else openInfo();
+        });
+
+        overlay?.addEventListener("click", closeInfo);
+
+        onBodyScroll?.addEventListener("click", () => {
+            if (infoOpen) closeInfo();
+        });
+
+        infoPanel?.addEventListener("click", (e) => e.stopPropagation());
+
+        viewer
+            .querySelector(".product-prev")
+            ?.addEventListener("click", () => goTo(currentView - 1));
+        viewer
+            .querySelector(".product-next")
+            ?.addEventListener("click", () => goTo(currentView + 1));
+
+        dots.forEach((dot, i) => {
+            dot.addEventListener("click", () => goTo(i));
+        });
+    }
+
+    document.addEventListener("astro:page-load", () => {
+        document.querySelectorAll(".product-viewer").forEach(initViewer);
+    });
+</script>

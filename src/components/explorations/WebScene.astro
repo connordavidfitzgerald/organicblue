@@ -1,0 +1,270 @@
+---
+const imageModules = import.meta.glob("../../assets/images/*", {
+    eager: true,
+    query: "?url",
+    import: "default",
+}) as Record<string, string>;
+
+const imageUrls = Object.entries(imageModules)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .filter(([path]) => {
+        const filename = path.split("/").pop() ?? "";
+        return !filename.startsWith("ES");
+    })
+    .map(([, url]) => url);
+---
+
+<canvas
+    id="web-canvas"
+    data-images={JSON.stringify(imageUrls)}
+    class="absolute inset-0 w-full h-full"></canvas>
+
+<script>
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { gsap } from "gsap";
+
+    let disposeScene: (() => void) | null = null;
+
+    function initScene(canvas: HTMLCanvasElement, imageUrls: string[]) {
+        gsap.fromTo(
+            canvas,
+            { opacity: 0 },
+            { opacity: 1, duration: 2.5, delay: 0.6, ease: "power3.out" },
+        );
+
+        // ── Renderer
+        const renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            alpha: true,
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+
+        // ── Scene & camera
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(
+            55,
+            canvas.clientWidth / canvas.clientHeight,
+            0.1,
+            100,
+        );
+        camera.position.z = 6x;
+
+        // ── Controls
+        const controls = new OrbitControls(camera, canvas);
+        controls.enableDamping = true;
+        controls.enablePan = false;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 4;
+        controls.maxDistance = 22;
+
+        let lastInteractionTime = Date.now();
+        controls.addEventListener("change", () => {
+            lastInteractionTime = Date.now();
+        });
+
+        // ── Web group
+        const group = new THREE.Group();
+        scene.add(group);
+
+        // ── Node positions — Fibonacci sphere
+        const NODE_COUNT = imageUrls.length;
+        const SPHERE_R = 2.5;
+        const nodes: THREE.Vector3[] = [];
+
+        for (let i = 0; i < NODE_COUNT; i++) {
+            const phi = Math.acos(1 - (2 * (i + 0.5)) / NODE_COUNT);
+            const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+            nodes.push(
+                new THREE.Vector3(
+                    SPHERE_R * Math.sin(phi) * Math.cos(theta),
+                    SPHERE_R * Math.sin(phi) * Math.sin(theta),
+                    SPHERE_R * Math.cos(phi),
+                ),
+            );
+        }
+
+        // ── Edges — each node connects to its 3 nearest neighbours
+        const edgeSet = new Set<string>();
+        const edgePositions: number[] = [];
+
+        for (let i = 0; i < NODE_COUNT; i++) {
+            const sorted = nodes
+                .map((n, j) => ({ j, d: nodes[i].distanceTo(n) }))
+                .filter(({ j }) => j !== i)
+                .sort((a, b) => a.d - b.d);
+
+            for (let k = 0; k < 3; k++) {
+                const { j } = sorted[k];
+                const key = `${Math.min(i, j)}-${Math.max(i, j)}`;
+                if (!edgeSet.has(key)) {
+                    edgeSet.add(key);
+                    edgePositions.push(
+                        nodes[i].x,
+                        nodes[i].y,
+                        nodes[i].z,
+                        nodes[j].x,
+                        nodes[j].y,
+                        nodes[j].z,
+                    );
+                }
+            }
+        }
+
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute(
+            "position",
+            new THREE.Float32BufferAttribute(edgePositions, 3),
+        );
+        group.add(
+            new THREE.LineSegments(
+                lineGeo,
+                new THREE.LineBasicMaterial({
+                    color: 0x000000,
+                    transparent: true,
+                    opacity: 0.2,
+                }),
+            ),
+        );
+
+        // ── Sprites — one per image, auto-billboarded
+        const SPRITE_H = 0.55;
+        const sprites: THREE.Sprite[] = [];
+        const loader = new THREE.TextureLoader();
+
+        imageUrls.forEach((url, i) => {
+            loader.load(url, (texture) => {
+                const aspect = texture.image.width / texture.image.height;
+                const sprite = new THREE.Sprite(
+                    new THREE.SpriteMaterial({
+                        map: texture,
+                        transparent: true,
+                    }),
+                );
+                sprite.position.copy(nodes[i]);
+                sprite.scale.set(SPRITE_H * aspect, SPRITE_H, 1);
+                sprite.userData = { url, index: i };
+                group.add(sprite);
+                sprites.push(sprite);
+            });
+        });
+
+        // ── Click detection
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let pointerDown = { x: 0, y: 0 };
+
+        const onPointerDown = (e: PointerEvent) => {
+            pointerDown = { x: e.clientX, y: e.clientY };
+        };
+        const onPointerUp = (e: PointerEvent) => {
+            if (
+                Math.hypot(
+                    e.clientX - pointerDown.x,
+                    e.clientY - pointerDown.y,
+                ) > 5
+            )
+                return;
+            const rect = canvas.getBoundingClientRect();
+            pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            const hits = raycaster.intersectObjects(sprites);
+            if (hits.length > 0) {
+                const { url, index } = hits[0].object.userData;
+                window.dispatchEvent(
+                    new CustomEvent("overlay:open", { detail: { url, index } }),
+                );
+            }
+        };
+
+        canvas.addEventListener("pointerdown", onPointerDown);
+        canvas.addEventListener("pointerup", onPointerUp);
+
+        // ── Resize
+        const ro = new ResizeObserver(() => {
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h, false);
+        });
+        ro.observe(canvas);
+
+        // ── Render loop — pauseable so we can free the frame budget during transitions
+        let rafId = 0;
+        let running = false;
+
+        function startLoop() {
+            if (running) return;
+            running = true;
+            function tick() {
+                if (!running) return;
+                rafId = requestAnimationFrame(tick);
+                controls.update();
+                if (Date.now() - lastInteractionTime > 2000)
+                    group.rotation.y += 0.003;
+                renderer.render(scene, camera);
+            }
+            tick();
+        }
+
+        function stopLoop() {
+            running = false;
+            cancelAnimationFrame(rafId);
+        }
+
+        // Pause automatically when the canvas is off-screen (other sections / other pages)
+        const io = new IntersectionObserver(
+            ([entry]) => {
+                entry.isIntersecting ? startLoop() : stopLoop();
+            },
+            { threshold: 0.1 },
+        );
+        io.observe(canvas);
+        startLoop();
+
+        // ── Return teardown
+        return () => {
+            stopLoop();
+            io.disconnect();
+            ro.disconnect();
+            canvas.removeEventListener("pointerdown", onPointerDown);
+            canvas.removeEventListener("pointerup", onPointerUp);
+            controls.dispose();
+            renderer.dispose();
+        };
+    }
+
+    function tryInit() {
+        disposeScene?.();
+        disposeScene = null;
+
+        const canvas = document.getElementById(
+            "web-canvas",
+        ) as HTMLCanvasElement | null;
+        if (!canvas) return;
+
+        const imageUrls: string[] = JSON.parse(canvas.dataset.images!);
+
+        function attempt() {
+            if (!canvas!.isConnected) return;
+            if (canvas!.clientWidth === 0 || canvas!.clientHeight === 0) {
+                requestAnimationFrame(attempt);
+                return;
+            }
+            disposeScene = initScene(canvas!, imageUrls);
+        }
+        requestAnimationFrame(attempt);
+    }
+
+    // Stop the loop the moment navigation begins — frees the frame budget for GSAP
+    document.addEventListener("astro:before-swap", () => {
+        disposeScene?.();
+        disposeScene = null;
+    });
+
+    document.addEventListener("astro:page-load", tryInit);
+</script>

@@ -1,0 +1,81 @@
+---
+import logoSrc from "../assets/svgs/ob-logo.svg";
+---
+
+<nav
+    id="navbar"
+    transition:persist
+    class="fixed top-0 left-0 z-50 w-full spacing-padding grid grid-cols-12 items-center text-white pb-5 opacity-70 mix-blend-normal font-normal text-sm tracking-normal pt-5"
+>
+    <div
+        id="navbar-left"
+        class="col-start-2 col-end-5 flex justify-between pl-5"
+    >
+        <a href="/about">about</a>
+        <a href="/shop">shop</a>
+    </div>
+
+    <a href="/" class="col-start-6 col-end-8 flex justify-center">
+        <img src={logoSrc.src} alt="organicblue" class="h-6 w-auto" />
+    </a>
+
+    <div
+        id="navbar-right"
+        class="col-start-9 col-end-12 flex justify-between pr-5"
+    >
+        <a href="/explorations">explorations</a>
+        <a href="/cart">cart</a>
+    </div>
+</nav>
+
+<script>
+    import { gsap } from "gsap";
+
+    function positionNavbar(animate: boolean) {
+        const navbar = document.getElementById("navbar") as HTMLElement | null;
+        if (!navbar) return;
+        const isHome = document.body.dataset.page === "home";
+        const y = isHome ? (window.innerHeight - navbar.offsetHeight) / 2 : 0;
+        if (animate) {
+            gsap.to(navbar, { y, duration: 1, delay: 0.1, ease: "power2.out" });
+        } else {
+            gsap.set(navbar, { y });
+        }
+    }
+
+    function updateColumns(isHome: boolean) {
+        const left = document.getElementById("navbar-left");
+        const right = document.getElementById("navbar-right");
+        const navbar = document.getElementById("navbar");
+        if (!left || !right || !navbar) return;
+        left.classList.toggle("col-start-1", !isHome);
+        left.classList.toggle("col-end-4", !isHome);
+        left.classList.toggle("col-start-2", isHome);
+        left.classList.toggle("col-end-5", isHome);
+        right.classList.toggle("col-end-13", !isHome);
+        right.classList.toggle("col-start-9", isHome);
+        right.classList.toggle("col-end-12", isHome);
+        right.classList.toggle("col-start-10", !isHome);
+        navbar.classList.toggle("mix-blend-normal", isHome);
+        navbar.classList.toggle("mix-blend-difference", !isHome);
+        navbar.classList.toggle("opacity-70", isHome);
+        navbar.classList.toggle("opacity-50", !isHome);
+    }
+
+    requestAnimationFrame(() => {
+        const isHome = document.body.dataset.page === "home";
+        positionNavbar(false);
+        updateColumns(isHome);
+    });
+
+    document.addEventListener("astro:before-swap", (e: any) => {
+        const newIsHome = e.newDocument.body.dataset.page === "home";
+        const navbar = document.getElementById("navbar") as HTMLElement | null;
+        if (!navbar) return;
+        const y = newIsHome
+            ? (window.innerHeight - navbar.offsetHeight) / 2
+            : 0;
+        gsap.to(navbar, { y, duration: 1, delay: 0.1, ease: "power2.out" });
+        updateColumns(newIsHome);
+    });
+</script>

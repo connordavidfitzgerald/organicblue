@@ -1,0 +1,246 @@
+---
+import Layout from "../layouts/Layout.astro";
+import WebScene from "../components/explorations/WebScene.astro";
+import ImageOverlay from "../components/explorations/ImageOverlay.astro";
+import ProductViewer from "../components/explorations/ProductViewer.astro";
+
+const productImgs = import.meta.glob("../assets/images/ES*.png", {
+    eager: true,
+    query: "?url",
+    import: "default",
+}) as Record<string, string>;
+
+const onBodyImgs = import.meta.glob("../assets/images/on-body/*.png", {
+    eager: true,
+    query: "?url",
+    import: "default",
+}) as Record<string, string>;
+
+function img(name: string, view: string): string {
+    const target = `${name} ${view}.png`;
+    const entry = Object.entries(productImgs).find(([path]) =>
+        path.endsWith(target),
+    );
+    return entry?.[1] ?? "";
+}
+
+function onBodyFor(prefix: string): string[] {
+    return Object.entries(onBodyImgs)
+        .filter(([path]) => path.includes(`/on-body/${prefix}-`))
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([, url]) => url);
+}
+
+const products = [
+    {
+        name: "ES prototype 1",
+        front: img("ES1", "Front"),
+        side: img("ES1", "Side"),
+        back: img("ES1", "Back"),
+        onBodyImages: onBodyFor("ES1"),
+        description: `Low-light. Summer nights spent biking with friends. The particular freedom of moving through warm evenings with nowhere urgent to be. We wondered: can we capture that feeling in an object?\n\nWe started the process by studying how the body moves, where a pack makes contact, where friction and fatigue accumulate. From that understanding, we made a set of rules: no bounce, no shoulder dig, under 500g, and weather resistant. The intention was a pack that disappears into your movement. Something you look forward to bringing rather than something you tolerate.`,
+    },
+    {
+        name: "ES prototype 2",
+        front: img("ES2", "Front"),
+        side: img("ES2", "Side"),
+        back: img("ES2", "Back"),
+        onBodyImages: onBodyFor("ES2"),
+        description: "",
+    },
+    {
+        name: "ES.ST final render",
+        front: img("ESST", "Front"),
+        side: img("ESST", "Side"),
+        back: img("ESST", "Back"),
+        onBodyImages: onBodyFor("ESST"),
+        description: "",
+    },
+    {
+        name: "ES.RS final render",
+        front: img("ESRS", "Front"),
+        side: img("ESRS", "Side"),
+        back: img("ESRS", "Back"),
+        onBodyImages: onBodyFor("ESRS"),
+        description: "",
+    },
+];
+---
+
+<Layout title="explorations — organicblue">
+    <div
+        id="exp-scroller"
+        class="flex h-screen overflow-x-scroll overflow-y-hidden"
+        style="scroll-snap-type: x mandatory;"
+    >
+        <!-- Section 1: Three.js web -->
+        <section
+            class="relative flex-shrink-0 w-screen h-screen bg-white"
+            style="scroll-snap-align: start;"
+        >
+            <WebScene />
+        </section>
+
+        <!-- Sections 2–5: Product viewers -->
+        {
+            products.map((p) => (
+                <section
+                    class="relative flex-shrink-0 w-screen h-screen bg-white overflow-hidden"
+                    style="scroll-snap-align: start;"
+                >
+                    <ProductViewer
+                        name={p.name}
+                        front={p.front}
+                        side={p.side}
+                        back={p.back}
+                        onBodyImages={p.onBodyImages}
+                        description={p.description}
+                    />
+                </section>
+            ))
+        }
+
+        <!-- Section 6: Dual cart viewer (ES.ST + ES.RS side by side) -->
+        <section
+            class="relative flex-shrink-0 w-screen h-screen bg-white overflow-hidden"
+            style="scroll-snap-align: start;"
+        >
+            <div class="dual-viewers absolute inset-0 flex">
+                <div class="relative w-1/2 h-full>
+                    <ProductViewer
+                        name={products[2].name}
+                        front={products[2].front}
+                        side={products[2].side}
+                        back={products[2].back}
+                        cartMode={true}
+                    />
+                </div>
+                <div class="relative w-1/2 h-full">
+                    <ProductViewer
+                        name={products[3].name}
+                        front={products[3].front}
+                        side={products[3].side}
+                        back={products[3].back}
+                        cartMode={true}
+                    />
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Pure click navigation zones -->
+    <div
+        id="nav-prev"
+        class="fixed left-0 top-0 w-20 h-screen z-40 cursor-pointer"
+    >
+    </div>
+    <div
+        id="nav-next"
+        class="fixed right-0 top-0 w-20 h-screen z-40 cursor-pointer"
+    >
+    </div>
+
+    <!-- Page counter -->
+    <div
+        id="page-counter"
+        class="fixed bottom-10 left-0 right-0 flex justify-center gap-4 z-40"
+    >
+        {
+            [0, 1, 2, 3, 4, 5].map((i) => (
+                <button
+                    class="page-dot text-sm tracking-normal text-black"
+                    data-idx={i}
+                >
+                    {String(i + 1).padStart(2, "0")}
+                </button>
+            ))
+        }
+    </div>
+
+    <ImageOverlay />
+</Layout>
+
+<script>
+    import { gsap } from "gsap";
+
+    document.addEventListener("astro:page-load", () => {
+        const scroller = document.getElementById("exp-scroller");
+        if (!scroller) return;
+
+        const sections = Array.from(scroller.querySelectorAll("section"));
+        const dots = Array.from(
+            document.querySelectorAll<HTMLElement>(".page-dot"),
+        );
+        let currentIdx = 0;
+
+        function updateCounter(idx: number) {
+            dots.forEach((dot, i) => {
+                dot.style.opacity = i === idx ? "0.5" : "0.3";
+            });
+        }
+
+        function getContent(section: Element): Element | null {
+            return section.querySelector(
+                "#web-canvas, .dual-viewers, .product-viewer",
+            );
+        }
+
+        function navigateTo(idx: number) {
+            const next = Math.max(0, Math.min(idx, sections.length - 1));
+            if (next === currentIdx) return;
+            currentIdx = next;
+
+            scroller!.scrollTo({
+                left: next * window.innerWidth,
+                behavior: "instant",
+            });
+
+            updateCounter(next);
+
+            const content = getContent(sections[next]);
+            if (content) {
+                gsap.fromTo(
+                    content,
+                    { opacity: 0, filter: "blur(16px)" },
+                    {
+                        opacity: 1,
+                        filter: "blur(0px)",
+                        duration: 1,
+                        delay: 0.3,
+                        ease: "power3.out",
+                    },
+                );
+            }
+
+            const onBody =
+                sections[next].querySelector<HTMLElement>(".on-body-scroll");
+            if (onBody) {
+                gsap.fromTo(
+                    onBody,
+                    { width: "50%" },
+                    {
+                        width: "33.3%",
+                        duration: 1,
+                        delay: 0.3,
+                        ease: "power3.out",
+                    },
+                );
+            }
+        }
+
+        updateCounter(0);
+
+        dots.forEach((dot) => {
+            dot.addEventListener("click", () =>
+                navigateTo(Number(dot.dataset.idx)),
+            );
+        });
+
+        document
+            .getElementById("nav-prev")
+            ?.addEventListener("click", () => navigateTo(currentIdx - 1));
+        document
+            .getElementById("nav-next")
+            ?.addEventListener("click", () => navigateTo(currentIdx + 1));
+    });
+</script>
