@@ -1,0 +1,39 @@
+---
+import type { Product } from "../../lib/products";
+
+// A spec entry maps a display label to a product metafield key.
+export interface SpecItem {
+    label: string;
+    key: string;
+}
+
+interface Props {
+    product: Product;
+    // One inner array per column; each column stacks its spec blocks.
+    columns: SpecItem[][];
+}
+
+const { product, columns } = Astro.props;
+---
+
+<div class="grid grid-cols-3 w-full px-1 py-1 rounded-xs h-fit bg-black">
+    {
+        columns.map((col) => (
+            <div class="flex flex-col gap-2">
+                {col.map((item) => {
+                    const values = product.specs[item.key];
+                    return values && values.length > 0 ? (
+                        <div class="flex flex-col gap-0">
+                            <p class="opacity-50">{item.label}</p>
+                            <ul>
+                                {values.map((v) => (
+                                    <li>{v}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    ) : null;
+                })}
+            </div>
+        ))
+    }
+</div>

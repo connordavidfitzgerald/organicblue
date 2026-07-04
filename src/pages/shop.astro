@@ -1,0 +1,46 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { getProducts } from "../lib/products";
+
+const products = await getProducts();
+---
+
+<Layout title="Shop — Organic Blue">
+    <!-- Three product columns, aligned with the navbar shop row above the nav. -->
+    <div
+        id="shop-stage"
+        class="fixed left-0 right-0 top-0 grid grid-cols-3 grid-rows-1 gap-0.5 px-0.5 pt-0.5 text-xs text-black"
+        style="bottom: var(--nav-h, 3.5rem);"
+    >
+        {
+            products.map((p) => (
+                <a
+                    href={`/shop/${p.slug}`}
+                    class="h-full w-full rounded-xs bg-grey overflow-hidden flex items-center justify-center transition-opacity hover:opacity-80"
+                >
+                    {p.images[0] ? (
+                        <img
+                            src={p.images[0].url}
+                            alt={p.images[0].alt}
+                            class="h-full w-full object-cover"
+                        />
+                    ) : (
+                        <span>{p.name}</span>
+                    )}
+                </a>
+            ))
+        }
+    </div>
+</Layout>
+
+<script>
+    function sizeStage() {
+        const nav = document.getElementById("navbar");
+        const stage = document.getElementById("shop-stage");
+        if (!nav || !stage) return;
+        stage.style.setProperty("--nav-h", `${nav.offsetHeight}px`);
+    }
+
+    document.addEventListener("astro:page-load", sizeStage);
+    window.addEventListener("resize", sizeStage);
+</script>

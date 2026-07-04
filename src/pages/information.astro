@@ -1,0 +1,104 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Organic Blue">
+    <div
+        id="info-stage"
+        class="fixed left-0 right-0 top-0 grid grid-cols-12 gap-0.5 px-0.5 pt-0.5 text-xs text-grey"
+        style="bottom: var(--nav-h, 3.5rem);"
+    >
+        <div class="col-span-3 flex flex-col gap-0.5 h-full">
+            <div class="flex w-full px-1 py-1 rounded-xs h-6 bg-black">
+                About
+            </div>
+            <div class="flex flex-col px-1 py-1 rounded-xs grow bg-black">
+                Organic Blue is a Montreal-based design studio working across
+                technical garments, objects and spatial experiences. Our
+                practice is built around a single question: How do the
+                environments we move through shape the way we experience
+                ourselves?
+            </div>
+        </div>
+        <div class="col-span-3 flex flex-col gap-0.5 h-full">
+            <div class="flex w-full px-1 py-1 rounded-xs h-6 bg-black">
+                Services
+            </div>
+            <ul class="flex flex-col px-1 py-1 grow rounded-xs bg-black">
+                <li>Research.</li>
+                <li>Prototyping.</li>
+                <li>Concepting.</li>
+                <li>World Building.</li>
+                <li>Creative Direction.</li>
+                <li>Small batch production.</li>
+                <li>Technical Product design.</li>
+            </ul>
+        </div>
+        <div class="col-span-3 flex flex-col gap-0.5 h-full">
+            <div class="flex w-full px-1 py-1 rounded-xs h-6 bg-black">
+                Contact
+            </div>
+            <div class="flex flex-col px-1 py-1 grow rounded-xs bg-black">
+                info@organicblue000.com
+            </div>
+        </div>
+        <div class="col-span-3 flex flex-col gap-0.5 h-full text-black">
+            <div
+                class="flex w-full px-1 py-1 rounded-xs h-6 bg-black text-grey"
+            >
+                Index
+            </div>
+            <div class="flex flex-col grow gap-0.5">
+                <div class="flex w-full px-1 py-1 rounded-xs h-6 bg-grey">
+                    Organic
+                </div>
+                <div class="flex grow w-full px-1 py-1 rounded-xs h-6 bg-grey">
+                    The primal layer of human experience: learning through the
+                    senses, movement, and direct engagement with the natural
+                    world. It reflects our innate connection to ecosystems, the
+                    body, and the rhythms of the earth, grounding us in
+                    presence, calm, and sustainable ways of living.
+                </div>
+            </div>
+            <div class="flex flex-col grow gap-0.5">
+                <div class="flex w-full px-1 py-1 rounded-xs h-6 bg-grey">
+                    Blue
+                </div>
+                <div class="flex grow w-full px-1 py-1 rounded-xs h-6 bg-grey">
+                    The modern layer of human experience: learning through
+                    technology, built environments, and evolving systems that
+                    extend human capability. It represents innovation, networks,
+                    and the tools that guide progress toward more connected,
+                    sustainable, and human-centered futures.
+                </div>
+            </div>
+            <div class="flex flex-col grow gap-0.5">
+                <div class="flex w-full px-1 py-1 rounded-xs h-6 bg-grey">
+                    Reconnecting with the Organic
+                </div>
+                <div class="flex grow w-full px-1 py-1 rounded-xs h-6 bg-grey">
+                    The foundation where Organic Blue lives. It is not a return
+                    to the past, but a reawakening of the sensory intelligence
+                    already within us, awareness of the body, movement,
+                    environment, and natural rhythms often muted by modern life.
+                    By restoring this connection, technology, design, and
+                    innovation can operate with intention, creating a balanced
+                    state where contemporary systems and human instinct exist in
+                    harmony.
+                </div>
+            </div>
+        </div>
+    </div>
+</Layout>
+
+<script>
+    function sizeStage() {
+        const nav = document.getElementById("navbar");
+        const stage = document.getElementById("info-stage");
+        if (!nav || !stage) return;
+        stage.style.setProperty("--nav-h", `${nav.offsetHeight}px`);
+    }
+
+    document.addEventListener("astro:page-load", sizeStage);
+    window.addEventListener("resize", sizeStage);
+</script>
