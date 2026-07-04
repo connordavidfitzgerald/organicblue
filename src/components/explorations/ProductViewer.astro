@@ -166,14 +166,24 @@ const {
             infoToggle.textContent = "close";
 
             overlay.classList.remove("hidden");
-            gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" });
+            gsap.fromTo(
+                overlay,
+                { opacity: 0 },
+                { opacity: 1, duration: 0.4, ease: "power3.out" },
+            );
 
             infoPanel.classList.remove("hidden");
             gsap.set(infoPanel, { transformOrigin: "bottom center" });
             gsap.fromTo(
                 infoPanel,
                 { scale: 0.85, opacity: 0, y: 16 },
-                { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" },
+                {
+                    scale: 1,
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.4,
+                    ease: "power3.out",
+                },
             );
         }
 
@@ -208,15 +218,19 @@ const {
         let wheelAccum = 0;
         const WHEEL_THRESHOLD = 120;
         const productLeft = viewer.querySelector(".product-left");
-        productLeft?.addEventListener("wheel", (e) => {
-            const we = e as WheelEvent;
-            we.preventDefault();
-            wheelAccum += we.deltaY;
-            if (Math.abs(wheelAccum) >= WHEEL_THRESHOLD) {
-                goTo(currentView + (wheelAccum > 0 ? 1 : -1));
-                wheelAccum = 0;
-            }
-        }, { passive: false });
+        productLeft?.addEventListener(
+            "wheel",
+            (e) => {
+                const we = e as WheelEvent;
+                we.preventDefault();
+                wheelAccum += we.deltaY;
+                if (Math.abs(wheelAccum) >= WHEEL_THRESHOLD) {
+                    goTo(currentView + (wheelAccum > 0 ? 1 : -1));
+                    wheelAccum = 0;
+                }
+            },
+            { passive: false },
+        );
 
         dots.forEach((dot, i) => {
             dot.addEventListener("click", () => goTo(i));
