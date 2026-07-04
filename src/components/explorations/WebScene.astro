@@ -83,7 +83,7 @@ const images = await Promise.all(
         controls.enablePan = false;
         controls.dampingFactor = 0.05;
         controls.minDistance = 1;
-        controls.maxDistance = 1;
+        controls.maxDistance = 7;
 
         // Track real user interaction (drag start/end) rather than every damped
         // "change" frame — otherwise the coast-to-stop keeps resetting the timer
