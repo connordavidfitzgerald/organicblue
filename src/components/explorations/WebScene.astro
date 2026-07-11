@@ -1,36 +1,18 @@
 ---
-import { getImage } from "astro:assets";
+import { getExplorationImages, urlFor } from "../../lib/sanity";
 
-// Images live in src/assets/images/<category>/*. The folder name
+// Images are managed in Sanity (explorationImage docs). The `category` field
 // (environment | product | prototype | research) becomes the sprite's category.
-const imageModules = import.meta.glob(
-    [
-        "../../assets/images/environment/*.{png,jpg,jpeg,webp}",
-        "../../assets/images/product/*.{png,jpg,jpeg,webp}",
-        "../../assets/images/prototype/*.{png,jpg,jpeg,webp}",
-        "../../assets/images/research/*.{png,jpg,jpeg,webp}",
-    ],
-    { eager: true, import: "default" },
-) as Record<string, ImageMetadata>;
+const docs = await getExplorationImages();
 
-const entries = Object.entries(imageModules).sort(([a], [b]) =>
-    a.localeCompare(b),
-);
-
-// Build-time optimization: a small WebP thumbnail powers each of the ~100 sphere
-// sprites (fast first paint); a larger WebP is loaded on demand for the overlay.
-const images = await Promise.all(
-    entries.map(async ([path, img]) => {
-        const category =
-            path.match(/\/images\/([^/]+)\//)?.[1]?.toLowerCase() ??
-            "environment";
-        const [thumb, full] = await Promise.all([
-            getImage({ src: img, width: 512, format: "webp", quality: 60 }),
-            getImage({ src: img, width: 1280, format: "webp", quality: 72 }),
-        ]);
-        return { thumb: thumb.src, full: full.src, category };
-    }),
-);
+// A small thumbnail powers each of the ~100 sphere sprites (fast first paint);
+// a larger one is loaded on demand for the overlay. Sanity's CDN serves
+// WebP/AVIF automatically via auto("format").
+const images = docs.map((doc) => ({
+    thumb: urlFor(doc.image).width(1000).auto("format").url(),
+    full: urlFor(doc.image).width(1500).auto("format").url(),
+    category: doc.category,
+}));
 ---
 
 <div

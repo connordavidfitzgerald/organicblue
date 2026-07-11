@@ -1,0 +1,82 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getArchiveCollection, urlFor } from "../../lib/sanity";
+import ArchiveLightbox from "../../components/archive/ArchiveLightbox.astro";
+
+export async function getStaticPaths() {
+    // Query lives inside getStaticPaths — Astro hoists this into its own module
+    // context, so it can't see module-scope frontmatter imports/consts.
+    const { getArchiveCollections } = await import("../../lib/sanity");
+    const collections = await getArchiveCollections();
+    return collections.map((c) => ({ params: { collection: c.slug } }));
+}
+
+const { collection: slug } = Astro.params;
+const collection = await getArchiveCollection(slug!);
+const images = collection?.images ?? [];
+---
+
+<Layout title={`${collection?.title ?? "Archive"} — Organic Blue`}>
+    <div
+        id="archive-stage"
+        class="fixed left-0 right-0 top-0 px-0.5 pt-0.5 overflow-y-auto text-xs text-grey"
+        style="bottom: var(--nav-h, 3.5rem);"
+    >
+        <!-- Full-width grid of 4:5 thumbnails -->
+        <div class="archive-thumbs grid grid-cols-12 gap-0.5">
+            {
+                images.map((img, i) => (
+                    <button
+                        type="button"
+                        class="archive-thumb block w-full aspect-[4/5] overflow-hidden rounded-xs bg-black transition-[filter] duration-200"
+                        data-index={i}
+                        data-full={urlFor(img).width(1800).auto("format").url()}
+                        data-alt={img.alt ?? `${collection?.title} ${i + 1}`}
+                        aria-label={`View image ${i + 1}`}
+                    >
+                        <img
+                            src={urlFor(img)
+                                .width(400)
+                                .height(500)
+                                .fit("crop")
+                                .auto("format")
+                                .url()}
+                            alt={img.alt ?? `${collection?.title} ${i + 1}`}
+                            loading="lazy"
+                            class="w-full h-full object-cover"
+                        />
+                    </button>
+                ))
+            }
+        </div>
+    </div>
+
+    <ArchiveLightbox />
+</Layout>
+
+<style>
+    .archive-thumbs {
+        scrollbar-width: none;
+    }
+    #archive-stage {
+        scrollbar-width: none;
+    }
+    #archive-stage::-webkit-scrollbar {
+        display: none;
+    }
+    .archive-thumb:hover {
+        filter: grayscale(1);
+    }
+</style>
+
+<script>
+    function sizeStage() {
+        const nav = document.getElementById("navbar");
+        const stage = document.getElementById("archive-stage");
+        if (!nav || !stage) return;
+        stage.style.setProperty("--nav-h", `${nav.offsetHeight}px`);
+    }
+
+    document.addEventListener("astro:page-load", sizeStage);
+    window.addEventListener("resize", sizeStage);
+</script>

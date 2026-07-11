@@ -1,7 +1,9 @@
 ---
 import { getProducts } from "../lib/products";
+import { getArchiveCollections } from "../lib/sanity";
 
 const products = await getProducts();
+const collections = await getArchiveCollections();
 
 const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
 
@@ -29,6 +31,15 @@ const currentSlug = pathname.startsWith("/shop/")
     ? pathname.slice("/shop/".length)
     : null;
 
+// Modular archive row — shown on the archive index and every collection page.
+// Mirrors the shop row: on the index all labels read as active; on a collection
+// page only the current one does.
+const showArchive =
+    pathname === "/archive" || pathname.startsWith("/archive/");
+const currentArchiveSlug = pathname.startsWith("/archive/")
+    ? pathname.slice("/archive/".length)
+    : null;
+
 // The Shop nav button doubles as the cart toggle. Its count badge is the
 // inverse of the button's own colours (button black -> badge grey, and vice
 // versa), so we key both off the same active check.
@@ -37,17 +48,17 @@ const shopActive = isActive("/shop");
 
 <nav
     id="navbar"
-    class="grid grid-cols-12 gap-0.5 px-0.5 fixed bottom-0 w-full text-xs text-black z-10 bg-white py-0.5"
+    class="grid grid-cols-12 gap-0.5 px-0.5 fixed bottom-0 w-full text-sm text-black z-10 bg-white py-0.5"
 >
     {
         showFilters && (
             <>
-                <div class="col-span-3 bg-black text-grey flex items-center w-full px-1 py-1 rounded-xs h-6">
+                <div class="col-span-3 bg-black text-grey flex items-center w-full px-1 py-1 rounded-xs h-7">
                     Filters
                 </div>
                 <fieldset
                     id="exp-filters"
-                    class="col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1 rounded-xs h-6"
+                    class="col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1 rounded-xs h-7"
                 >
                     {filters.map((label, i) => (
                         <label class="flex items-center gap-1 cursor-pointer select-none">
@@ -72,7 +83,7 @@ const shopActive = isActive("/shop");
                     href={`/shop/${p.slug}`}
                     aria-current={p.slug === currentSlug ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-4 flex items-center justify-between w-full px-1 py-1 rounded-xs h-6 transition-opacity",
+                        "cart-dim col-span-4 flex items-center justify-between w-full px-1 py-1 rounded-xs h-7 transition-opacity",
                         currentSlug === null || p.slug === currentSlug
                             ? "bg-black text-grey"
                             : "bg-grey text-black",
@@ -85,6 +96,27 @@ const shopActive = isActive("/shop");
             ))
     }
     {
+        showArchive &&
+            collections.map((c) => (
+                <a
+                    href={`/archive/${c.slug}`}
+                    aria-current={
+                        c.slug === currentArchiveSlug ? "page" : undefined
+                    }
+                    class:list={[
+                        "cart-dim col-span-4 flex items-center w-full px-1 py-1 rounded-xs h-7 transition-opacity",
+                        currentArchiveSlug === null ||
+                        c.slug === currentArchiveSlug
+                            ? "bg-black text-grey"
+                            : "bg-grey text-black",
+                        c.slug !== currentArchiveSlug && "hover:opacity-80",
+                    ]}
+                >
+                    <span>{c.title}</span>
+                </a>
+            ))
+    }
+    {
         navItems.map(({ label, href }) =>
             label === "Shop" ? (
                 <a
@@ -92,7 +124,7 @@ const shopActive = isActive("/shop");
                     href={href}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "col-start-1 col-span-3 flex items-center w-full px-1 py-1 rounded-xs h-6 transition-colors hover:bg-black hover:text-grey",
+                        "col-start-1 col-span-3 flex items-center w-full px-1 py-1 rounded-xs h-7 transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -116,7 +148,7 @@ const shopActive = isActive("/shop");
                     href={href}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-3 flex w-full px-1 py-1 rounded-xs h-6 transition-colors hover:bg-black hover:text-grey",
+                        "cart-dim col-span-3 flex w-full px-1 py-1 rounded-xs h-7 transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -129,7 +161,7 @@ const shopActive = isActive("/shop");
         href="/"
         aria-label="organicblue — home"
         class:list={[
-            "cart-dim col-span-12 flex items-center w-full px-1 py-1 rounded-xs h-6 transition-colors  hover:bg-black hover:text-grey",
+            "cart-dim col-span-12 flex items-center w-full px-1 py-1 rounded-xs h-7 transition-colors  hover:bg-black hover:text-grey",
             isHome ? "bg-black text-grey" : "bg-grey text-black",
         ]}
     >
@@ -365,7 +397,7 @@ const shopActive = isActive("/shop");
         btn.id = "cart-checkout";
         btn.type = "button";
         btn.className =
-            "flex items-center justify-between w-full px-1 py-1 rounded-xs h-6 bg-black text-grey transition-opacity hover:opacity-80";
+            "flex items-center justify-between w-full px-1 py-1 rounded-xs h-7 bg-black text-grey transition-opacity hover:opacity-80";
         const label = document.createElement("span");
         label.textContent = "Checkout";
         const totalEl = document.createElement("span");
