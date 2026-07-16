@@ -18,6 +18,7 @@ import { gsap } from "gsap";
 //                           (grey↔black) get an in-place colour-change flicker.
 
 const FLASH_IN = [0, 1, 0.4, 1]; // appear from nothing
+const FLASH_OUT = [1, 0.35, 0.7, 0]; // blink away (mirrors the WebScene flash-out)
 // Softer appear: a shallower dip (less luminance swing) over a slower ramp
 // (lower flash frequency) — gentler on photosensitivity while keeping the
 // flicker character. Opt in per subtree with `data-flicker-soft`.
@@ -33,6 +34,13 @@ const MAX_WAVE = 1.0; // cap on how long the whole wave takes to sweep
 
 const prefersReducedMotion = () =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Order elements as an on-screen wave: top-to-bottom, left-to-right.
+const byPosition = (els: HTMLElement[]) =>
+    els
+        .map((el) => ({ el, rect: el.getBoundingClientRect() }))
+        .sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left)
+        .map((o) => o.el);
 
 type FlickerOpts = {
     // When true (default) the wave sweeps top-to-bottom, left-to-right by
@@ -70,14 +78,7 @@ export function flicker(
         return;
     }
 
-    const ordered = sort
-        ? els
-              .map((el) => ({ el, rect: el.getBoundingClientRect() }))
-              .sort(
-                  (a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left,
-              )
-              .map((o) => o.el)
-        : els;
+    const ordered = sort ? byPosition(els) : els;
 
     const n = ordered.length;
     const s = Math.min(step, MAX_WAVE / Math.max(n - 1, 1));
@@ -101,6 +102,46 @@ export function flicker(
             // Leave the final inline opacity (1) in place so the element stays
             // lit — clearing it would hand control back to the [data-flicker]
             // rule and blink it out again.
+        });
+    });
+}
+
+// Flash a set of elements out (the mirror of `flicker`) and run `onDone` once
+// the whole wave has finished — used for the cart's exit, where the cards blink
+// away before the panel is torn down.
+export function flickerOut(
+    targets: Iterable<Element> | ArrayLike<Element>,
+    onDone?: () => void,
+    { sort = true, step = STEP }: { sort?: boolean; step?: number } = {},
+) {
+    const els = Array.from(targets).filter(
+        (el): el is HTMLElement => el instanceof HTMLElement,
+    );
+    if (els.length === 0) {
+        onDone?.();
+        return;
+    }
+    if (prefersReducedMotion()) {
+        els.forEach((el) => {
+            el.style.opacity = "0";
+        });
+        onDone?.();
+        return;
+    }
+
+    const ordered = sort ? byPosition(els) : els;
+    const s = Math.min(step, MAX_WAVE / Math.max(ordered.length - 1, 1));
+    let remaining = ordered.length;
+
+    ordered.forEach((el, i) => {
+        gsap.killTweensOf(el);
+        gsap.to(el, {
+            keyframes: { opacity: FLASH_OUT, easeEach: "power1.inOut" },
+            duration: gsap.utils.random(DUR_MIN, DUR_MAX),
+            delay: i * s + Math.random() * JITTER,
+            onComplete: () => {
+                if (--remaining === 0) onDone?.();
+            },
         });
     });
 }

@@ -59,7 +59,7 @@ const shopActive = isActive("/shop");
                     data-nav-key="filters-label"
                     data-nav-state="static"
                     data-flicker-step="0.22"
-                    class="col-span-3 bg-black text-grey flex items-center w-full px-1 py-1 rounded-xs h-6.5"
+                    class="cart-dim col-span-3 bg-black text-grey flex items-center w-full px-1 py-1 rounded-xs h-6.5"
                 >
                     Filters
                 </div>
@@ -69,7 +69,7 @@ const shopActive = isActive("/shop");
                     data-nav-key="filters"
                     data-nav-state="static"
                     data-flicker-step="0.22"
-                    class="col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1 rounded-xs h-6.5"
+                    class="cart-dim col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1 rounded-xs h-6.5"
                 >
                     {filters.map((label, i) => (
                         <label class="group flex items-center gap-1 cursor-pointer select-none">
@@ -317,7 +317,7 @@ const shopActive = isActive("/shop");
 </script>
 
 <script>
-    import { flicker } from "../scripts/flicker";
+    import { flicker, flickerOut } from "../scripts/flicker";
 
     // ---- Cart ---------------------------------------------------------------
     // Client-side cart persisted in localStorage. The navbar is re-rendered per
@@ -396,15 +396,23 @@ const shopActive = isActive("/shop");
     };
 
     const setOpen = (open: boolean) => {
+        const panel = document.getElementById("cart-panel");
+
+        // Closing: blink the cards/checkout out first, then tear the panel down.
+        if (!open && panel && panel.children.length > 0) {
+            flickerOut(Array.from(panel.children), () => {
+                cartOpen = false;
+                render();
+            });
+            return;
+        }
+
         cartOpen = open;
         render();
-        // Blink the cart in with the shared flicker language when it opens.
-        // The panel + its cards/checkout are built fresh by render() each time,
-        // so this catches whatever is currently shown.
-        if (open) {
-            const panel = document.getElementById("cart-panel");
-            if (panel) flicker(panel.children, { step: 0.07 });
-        }
+        // Opening: blink the cart in with the shared flicker language. The panel
+        // + its cards/checkout are built fresh by render() each time, so this
+        // catches whatever is currently shown.
+        if (open && panel) flicker(panel.children, { step: 0.07 });
     };
 
     // Build one cart item card matching the spec: 3-col grid, image / title +

@@ -1,8 +1,8 @@
 ---
 // Fills the stage area *above* the navbar and shows one archive image at a time.
 // Reads the collection grid's thumbnails (their data-full / data-alt) as the
-// image list. Navigate: left/right click zones, ← / → keys, or swipe (wrapping).
-// Close: click the image/backdrop, or Escape.
+// image list. Navigate: the vertical middle of the left/right strips, ← / →
+// keys, or swipe (wrapping). Close: the corners, the image/backdrop, or Escape.
 ---
 
 <div
@@ -12,16 +12,17 @@
 >
     <div
         id="lightbox-backdrop"
-        class="absolute inset-0 bg-white/80 backdrop-blur-sm cursor-zoom-out"
+        class="absolute inset-0 bg-white/80 backdrop-blur-sm"
     >
     </div>
 
-    <!-- Left / right click zones — "clicking left and right" navigates. -->
+    <!-- Prev / next zones cover only the vertical middle of the left/right
+         strips; the corners (and centre) fall through to the backdrop = close. -->
     <button
         id="lightbox-prev"
         type="button"
         aria-label="Previous image"
-        class="absolute left-0 top-0 h-full w-[28%] flex items-center justify-start pl-3 text-black/60 hover:text-black transition-colors cursor-w-resize"
+        class="absolute left-0 top-1/4 h-1/2 w-[28%] flex items-center justify-start pl-3 text-black/60 hover:text-black transition-colors cursor-pointer"
     >
         <span class="text-2xl leading-none select-none">‹</span>
     </button>
@@ -29,7 +30,7 @@
         id="lightbox-next"
         type="button"
         aria-label="Next image"
-        class="absolute right-0 top-0 h-full w-[28%] flex items-center justify-end pr-3 text-black/60 hover:text-black transition-colors cursor-e-resize"
+        class="absolute right-0 top-1/4 h-1/2 w-[28%] flex items-center justify-end pr-3 text-black/60 hover:text-black transition-colors cursor-pointer"
     >
         <span class="text-2xl leading-none select-none">›</span>
     </button>

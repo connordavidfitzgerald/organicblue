@@ -35,6 +35,14 @@
     opacity: 0;
 }
 
+/* Inverted navbar label — toggled by hoverGallery.ts so hovering an index tile
+   flips the *other* products'/collections' navbar labels. The rows carry
+   `transition-colors`, so the swap animates. */
+#navbar a.nav-inverted {
+    background-color: var(--color-grey);
+    color: var(--color-black);
+}
+
 /* Belt-and-suspenders with the layout's `transition:animate="none"`: kill the
    ClientRouter's default cross-fade so the new page appears instantly and the
    flicker wave is the only transition. */
