@@ -12,8 +12,8 @@
     --font-sans: "Octave", ui-sans-serif, system-ui, sans-serif;
     --color-grey: #ececec;
     --color-black: #3f3f3f;
-    --text-xs: 0.8125rem;
-    --text-sm: 0.8125rem;
+    --text-xs: 0.8rem;
+    --text-sm: 0.8rem;
 }
 
 @utility spacing-padding {
@@ -26,4 +26,26 @@
 }
 #exp-scroller::-webkit-scrollbar {
     display: none;
+}
+
+/* ── Flicker-in ──────────────────────────────────────────────────────────
+   Elements tagged `data-flicker` start hidden and are blinked in by JS
+   (see src/scripts/flicker.ts). Inline opacity set by GSAP overrides this. */
+[data-flicker] {
+    opacity: 0;
+}
+
+/* Belt-and-suspenders with the layout's `transition:animate="none"`: kill the
+   ClientRouter's default cross-fade so the new page appears instantly and the
+   flicker wave is the only transition. */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+}
+
+/* No motion: skip the flicker entirely, show everything immediately. */
+@media (prefers-reduced-motion: reduce) {
+    [data-flicker] {
+        opacity: 1;
+    }
 }

@@ -13,27 +13,37 @@ const products = await getProducts();
         style="bottom: var(--nav-h, 3.5rem);"
     >
         {
-            products.map((p) => (
-                <a
-                    href={`/shop/${p.slug}`}
-                    class="h-full w-full rounded-xs bg-grey overflow-hidden flex items-center justify-center transition-opacity hover:opacity-80"
-                >
-                    {p.images[0] ? (
-                        <img
-                            src={p.images[0].url}
-                            alt={p.images[0].alt}
-                            class="h-full w-full object-cover"
-                        />
-                    ) : (
-                        <span>{p.name}</span>
-                    )}
-                </a>
-            ))
+            products.map((p) => {
+                // Cycle through all product images on hover; distinct URLs only.
+                const urls = [...new Set(p.images.map((img) => img.url))];
+                return (
+                    <a
+                        href={`/shop/${p.slug}`}
+                        data-flicker
+                        data-flicker-step="0.1"
+                        data-flicker-ease="power2.out"
+                        class="h-full w-full rounded-xs bg-grey overflow-hidden flex items-center justify-center"
+                    >
+                        {urls[0] ? (
+                            <img
+                                src={urls[0]}
+                                alt={p.images[0]?.alt ?? p.name}
+                                data-hover-gallery={JSON.stringify(urls)}
+                                class="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <span>{p.name}</span>
+                        )}
+                    </a>
+                );
+            })
         }
     </div>
 </Layout>
 
 <script>
+    import "../scripts/hoverGallery";
+
     function sizeStage() {
         const nav = document.getElementById("navbar");
         const stage = document.getElementById("shop-stage");

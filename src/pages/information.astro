@@ -85,10 +85,16 @@ function parseBody(body: string): Block[] {
     >
         <!-- About -->
         <div class="col-span-3 flex flex-col gap-0.5 h-full">
-            <div class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black">
+            <div
+                data-flicker
+                class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black"
+            >
                 About
             </div>
-            <div class="flex flex-col px-1 py-1 rounded-xs bg-black">
+            <div
+                data-flicker
+                class="flex flex-col px-1 py-1 rounded-xs bg-black"
+            >
                 Organic Blue is a Montreal-based design studio working across
                 technical garments, objects and spatial experiences. Our
                 practice is built around a single question: How do the
@@ -100,7 +106,8 @@ function parseBody(body: string): Block[] {
                     <div class="accordion flex flex-col gap-0.5">
                         <button
                             type="button"
-                            class="accordion-header flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 bg-black text-grey"
+                            data-flicker
+                            class="accordion-header flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 bg-black text-grey transition-colors hover:bg-grey hover:text-black"
                             aria-expanded="false"
                         >
                             <span>{item.term}</span>
@@ -124,15 +131,21 @@ function parseBody(body: string): Block[] {
             }
             <!-- Empty filler soaks up the space down to the navbar; shrinks as
                  accordions open. -->
-            <div class="grow min-h-0 rounded-xs bg-grey"></div>
+            <div data-flicker class="grow min-h-0 rounded-xs bg-grey"></div>
         </div>
 
         <!-- FAQ -->
         <div class="col-span-3 flex flex-col gap-0.5 h-full">
-            <div class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black">
+            <div
+                data-flicker
+                class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black"
+            >
                 FAQ
             </div>
-            <div class="flex flex-col px-1 py-1 rounded-xs bg-black">
+            <div
+                data-flicker
+                class="flex flex-col px-1 py-1 rounded-xs bg-black"
+            >
                 {faqIntro}
             </div>
             {
@@ -140,7 +153,8 @@ function parseBody(body: string): Block[] {
                     <div class="accordion flex flex-col gap-0.5">
                         <button
                             type="button"
-                            class="accordion-header flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 bg-black text-grey"
+                            data-flicker
+                            class="accordion-header flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 bg-black text-grey transition-colors hover:bg-grey hover:text-black"
                             aria-expanded="false"
                         >
                             <span>{item.term}</span>
@@ -162,25 +176,37 @@ function parseBody(body: string): Block[] {
                     </div>
                 ))
             }
-            <div class="grow min-h-0 rounded-xs bg-grey"></div>
+            <div data-flicker class="grow min-h-0 rounded-xs bg-grey"></div>
         </div>
 
         <!-- Contact -->
         <div class="col-span-3 flex flex-col gap-0.5 h-full">
-            <div class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black">
+            <div
+                data-flicker
+                class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black"
+            >
                 Contact
             </div>
-            <div class="flex flex-col px-1 py-1 grow rounded-xs bg-black">
+            <div
+                data-flicker
+                class="flex flex-col px-1 py-1 grow rounded-xs bg-black"
+            >
                 info@organicblue000.com
             </div>
         </div>
 
         <!-- Services -->
         <div class="col-span-3 flex flex-col gap-0.5 h-full">
-            <div class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black">
+            <div
+                data-flicker
+                class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black"
+            >
                 Services
             </div>
-            <ul class="flex flex-col px-1 py-1 grow rounded-xs bg-black">
+            <ul
+                data-flicker
+                class="flex flex-col px-1 py-1 grow rounded-xs bg-black"
+            >
                 <li>Research.</li>
                 <li>Prototyping.</li>
                 <li>Concepting.</li>
@@ -194,6 +220,8 @@ function parseBody(body: string): Block[] {
 </Layout>
 
 <script>
+    import { flicker } from "../scripts/flicker";
+
     function sizeStage() {
         const nav = document.getElementById("navbar");
         const stage = document.getElementById("info-stage");
@@ -217,6 +245,11 @@ function parseBody(body: string): Block[] {
                     const open = body.classList.toggle("hidden") === false;
                     icon.textContent = open ? "−" : "+";
                     btn.setAttribute("aria-expanded", String(open));
+                    // Blink the revealed copy in with the shared flicker
+                    // language, in reading order (no positional re-sort).
+                    if (open) {
+                        flicker(body.children, { sort: false, step: 0.05 });
+                    }
                 });
             });
     }

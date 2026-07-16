@@ -28,6 +28,9 @@ const images = collection?.images ?? [];
                 images.map((img, i) => (
                     <button
                         type="button"
+                        data-flicker
+                        data-flicker-step="0.1"
+                        data-flicker-ease="power1.in"
                         class="archive-thumb block w-full aspect-[4/5] overflow-hidden rounded-xs bg-black transition-[filter] duration-200"
                         data-index={i}
                         data-full={urlFor(img).width(1800).auto("format").url()}

@@ -1,6 +1,7 @@
 ---
 import { getProducts } from "../lib/products";
 import { getArchiveCollections } from "../lib/sanity";
+import { storeDomain } from "../lib/shopify";
 
 const products = await getProducts();
 const collections = await getArchiveCollections();
@@ -53,15 +54,25 @@ const shopActive = isActive("/shop");
     {
         showFilters && (
             <>
-                <div class="col-span-3 bg-black text-grey flex items-center w-full px-1 py-1 rounded-xs h-7">
+                <div
+                    data-nav-flicker
+                    data-nav-key="filters-label"
+                    data-nav-state="static"
+                    data-flicker-step="0.22"
+                    class="col-span-3 bg-black text-grey flex items-center w-full px-1 py-1 rounded-xs h-6.5"
+                >
                     Filters
                 </div>
                 <fieldset
                     id="exp-filters"
-                    class="col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1 rounded-xs h-7"
+                    data-nav-flicker
+                    data-nav-key="filters"
+                    data-nav-state="static"
+                    data-flicker-step="0.22"
+                    class="col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1 rounded-xs h-6.5"
                 >
                     {filters.map((label, i) => (
-                        <label class="flex items-center gap-1 cursor-pointer select-none">
+                        <label class="group flex items-center gap-1 cursor-pointer select-none">
                             <input
                                 type="radio"
                                 name="exp-filter"
@@ -69,7 +80,9 @@ const shopActive = isActive("/shop");
                                 checked={i === 0}
                                 class="appearance-none w-2.5 h-2.5 rounded-full bg-grey outline-none cursor-pointer checked:bg-[radial-gradient(circle,var(--color-black)_0_35%,var(--color-grey)_40%)]"
                             />
-                            {label}
+                            <span class="transition-opacity group-hover:opacity-60">
+                                {label}
+                            </span>
                         </label>
                     ))}
                 </fieldset>
@@ -81,13 +94,24 @@ const shopActive = isActive("/shop");
             products.map((p) => (
                 <a
                     href={`/shop/${p.slug}`}
+                    data-nav-flicker
+                    data-nav-key={`shop-${p.slug}`}
+                    data-nav-state={
+                        currentSlug === null || p.slug === currentSlug
+                            ? "on"
+                            : "off"
+                    }
                     aria-current={p.slug === currentSlug ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-4 flex items-center justify-between w-full px-1 py-1 rounded-xs h-7 transition-opacity",
+                        "cart-dim col-span-4 flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 transition-colors",
                         currentSlug === null || p.slug === currentSlug
                             ? "bg-black text-grey"
                             : "bg-grey text-black",
-                        p.slug !== currentSlug && "hover:opacity-80",
+                        // No hover on the active product; others invert.
+                        p.slug !== currentSlug &&
+                            (currentSlug === null
+                                ? "hover:bg-grey hover:text-black"
+                                : "hover:bg-black hover:text-grey"),
                     ]}
                 >
                     <span>{p.name}</span>
@@ -100,16 +124,28 @@ const shopActive = isActive("/shop");
             collections.map((c) => (
                 <a
                     href={`/archive/${c.slug}`}
+                    data-nav-flicker
+                    data-nav-key={`archive-${c.slug}`}
+                    data-nav-state={
+                        currentArchiveSlug === null ||
+                        c.slug === currentArchiveSlug
+                            ? "on"
+                            : "off"
+                    }
                     aria-current={
                         c.slug === currentArchiveSlug ? "page" : undefined
                     }
                     class:list={[
-                        "cart-dim col-span-4 flex items-center w-full px-1 py-1 rounded-xs h-7 transition-opacity",
+                        "cart-dim col-span-4 flex items-center w-full px-1 py-1 rounded-xs h-6.5 transition-colors",
                         currentArchiveSlug === null ||
                         c.slug === currentArchiveSlug
                             ? "bg-black text-grey"
                             : "bg-grey text-black",
-                        c.slug !== currentArchiveSlug && "hover:opacity-80",
+                        // No hover on the active collection; others invert.
+                        c.slug !== currentArchiveSlug &&
+                            (currentArchiveSlug === null
+                                ? "hover:bg-grey hover:text-black"
+                                : "hover:bg-black hover:text-grey"),
                     ]}
                 >
                     <span>{c.title}</span>
@@ -122,9 +158,12 @@ const shopActive = isActive("/shop");
                 <a
                     id="shop-nav"
                     href={href}
+                    data-nav-flicker
+                    data-nav-key="nav-shop"
+                    data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "col-start-1 col-span-3 flex items-center w-full px-1 py-1 rounded-xs h-7 transition-colors hover:bg-black hover:text-grey",
+                        "col-start-1 col-span-3 flex items-center w-full px-1 py-1 rounded-xs h-6.5 transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -134,10 +173,10 @@ const shopActive = isActive("/shop");
                         type="button"
                         aria-label="Toggle cart"
                         class:list={[
-                            "hidden aspect-square h-3 items-center justify-center rounded-xs text-[0.625rem] leading-none",
+                            "hidden aspect-square h-4.5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
                             shopActive
-                                ? "bg-grey text-black"
-                                : "bg-black text-grey",
+                                ? "bg-grey text-black hover:bg-black hover:text-grey"
+                                : "bg-black text-grey hover:bg-grey hover:text-black",
                         ]}
                     >
                         0
@@ -146,9 +185,12 @@ const shopActive = isActive("/shop");
             ) : (
                 <a
                     href={href}
+                    data-nav-flicker
+                    data-nav-key={`nav-${label.toLowerCase()}`}
+                    data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-3 flex w-full px-1 py-1 rounded-xs h-7 transition-colors hover:bg-black hover:text-grey",
+                        "cart-dim col-span-3 flex w-full px-1 py-1 rounded-xs h-6.5 transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -159,9 +201,12 @@ const shopActive = isActive("/shop");
     }
     <a
         href="/"
+        data-nav-flicker
+        data-nav-key="nav-home"
+        data-nav-state={isHome ? "on" : "off"}
         aria-label="organicblue — home"
         class:list={[
-            "cart-dim col-span-12 flex items-center w-full px-1 py-1 rounded-xs h-7 transition-colors  hover:bg-black hover:text-grey",
+            "cart-dim col-span-12 flex items-center w-full px-1 py-1 rounded-xs h-6.5 transition-colors  hover:bg-black hover:text-grey",
             isHome ? "bg-black text-grey" : "bg-grey text-black",
         ]}
     >
@@ -231,6 +276,7 @@ const shopActive = isActive("/shop");
 }
 <div
     id="cart-panel"
+    data-shop-domain={storeDomain}
     class="fixed z-50 hidden flex-col gap-0.5 text-xs text-grey"
 >
 </div>
@@ -271,6 +317,8 @@ const shopActive = isActive("/shop");
 </script>
 
 <script>
+    import { flicker } from "../scripts/flicker";
+
     // ---- Cart ---------------------------------------------------------------
     // Client-side cart persisted in localStorage. The navbar is re-rendered per
     // page (Astro), so on every page load we rebuild the cart UI from storage
@@ -278,6 +326,7 @@ const shopActive = isActive("/shop");
 
     type CartItem = {
         slug: string;
+        variantId: string; // numeric Shopify variant id, for the checkout link
         name: string;
         priceAmount: number;
         priceCurrency: string;
@@ -315,6 +364,7 @@ const shopActive = isActive("/shop");
 
     const addToCart = (data: {
         slug: string;
+        variantId: string;
         name: string;
         price: string;
         image: string;
@@ -327,6 +377,7 @@ const shopActive = isActive("/shop");
             const { amount, currency } = parsePrice(data.price);
             items.push({
                 slug: data.slug,
+                variantId: data.variantId,
                 name: data.name,
                 priceAmount: amount,
                 priceCurrency: currency,
@@ -335,7 +386,8 @@ const shopActive = isActive("/shop");
             });
         }
         writeCart(items);
-        render();
+        // Adding an item pops the cart open (and flickers it in via setOpen).
+        setOpen(true);
     };
 
     const removeFromCart = (slug: string) => {
@@ -346,6 +398,13 @@ const shopActive = isActive("/shop");
     const setOpen = (open: boolean) => {
         cartOpen = open;
         render();
+        // Blink the cart in with the shared flicker language when it opens.
+        // The panel + its cards/checkout are built fresh by render() each time,
+        // so this catches whatever is currently shown.
+        if (open) {
+            const panel = document.getElementById("cart-panel");
+            if (panel) flicker(panel.children, { step: 0.07 });
+        }
     };
 
     // Build one cart item card matching the spec: 3-col grid, image / title +
@@ -381,7 +440,8 @@ const shopActive = isActive("/shop");
         );
         const removeEl = document.createElement("button");
         removeEl.type = "button";
-        removeEl.className = "opacity-50";
+        removeEl.className =
+            "opacity-50 transition-opacity hover:opacity-100 cursor-pointer";
         removeEl.textContent = "Remove";
         removeEl.addEventListener("click", () => removeFromCart(item.slug));
         priceCol.append(priceEl, removeEl);
@@ -397,12 +457,26 @@ const shopActive = isActive("/shop");
         btn.id = "cart-checkout";
         btn.type = "button";
         btn.className =
-            "flex items-center justify-between w-full px-1 py-1 rounded-xs h-7 bg-black text-grey transition-opacity hover:opacity-80";
+            "flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 bg-black text-grey transition-colors hover:bg-grey hover:text-black";
         const label = document.createElement("span");
         label.textContent = "Checkout";
         const totalEl = document.createElement("span");
         totalEl.textContent = formatMoney(total, currency);
         btn.append(label, totalEl);
+
+        // Hand off to Shopify's hosted checkout via a cart permalink:
+        //   https://{store}/cart/{variantId}:{qty},{variantId}:{qty}
+        // which loads a fresh cart with these lines and lands on checkout.
+        btn.addEventListener("click", () => {
+            const domain =
+                document.getElementById("cart-panel")?.dataset.shopDomain;
+            const lines = items
+                .filter((i) => i.variantId)
+                .map((i) => `${i.variantId}:${i.qty}`)
+                .join(",");
+            if (!domain || !lines) return;
+            window.location.href = `https://${domain}/cart/${lines}`;
+        });
         return btn;
     };
 
@@ -434,9 +508,9 @@ const shopActive = isActive("/shop");
         // Empty cart resets everything back to a plain Shop button.
         if (totalQty === 0) cartOpen = false;
 
-        // Count badge on the Shop button — this is the only thing adding to the
-        // cart changes; the panel stays hidden until the badge is pressed.
-        count.textContent = String(totalQty);
+        // Count badge on the Shop button. Shows the item count when closed and
+        // an ✕ (close affordance) while the cart is open.
+        count.textContent = cartOpen ? "✕" : String(totalQty);
         count.classList.toggle("hidden", totalQty === 0);
         count.classList.toggle("inline-flex", totalQty > 0);
         shopNav.classList.toggle("justify-between", totalQty > 0);
@@ -471,6 +545,7 @@ const shopActive = isActive("/shop");
                 el.addEventListener("click", () =>
                     addToCart({
                         slug: el.dataset.slug ?? "",
+                        variantId: el.dataset.variantId ?? "",
                         name: el.dataset.name ?? "",
                         price: el.dataset.price ?? "",
                         image: el.dataset.image ?? "",

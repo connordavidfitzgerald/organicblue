@@ -6,11 +6,12 @@ import { getExplorationImages, urlFor } from "../../lib/sanity";
 const docs = await getExplorationImages();
 
 // A small thumbnail powers each of the ~100 sphere sprites (fast first paint);
-// a larger one is loaded on demand for the overlay. Sanity's CDN serves
-// WebP/AVIF automatically via auto("format").
+// the high-res `full` is fetched on demand for whichever single sprite the user
+// clicks to zoom-lock, so we never download 100 large images up front. Sanity's
+// CDN serves WebP/AVIF automatically via auto("format").
 const images = docs.map((doc) => ({
-    thumb: urlFor(doc.image).width(1000).auto("format").url(),
-    full: urlFor(doc.image).width(1500).auto("format").url(),
+    thumb: urlFor(doc.image).width(640).auto("format").url(),
+    full: urlFor(doc.image).width(2000).auto("format").url(),
     category: doc.category,
 }));
 ---
@@ -34,11 +35,8 @@ const images = docs.map((doc) => ({
     let disposeScene: (() => void) | null = null;
 
     function initScene(canvas: HTMLCanvasElement, images: SceneImage[]) {
-        gsap.fromTo(
-            canvas,
-            { opacity: 0 },
-            { opacity: 1, duration: 2.5, delay: 0.6, ease: "power3.out" },
-        );
+        // No canvas-level fade — the scene flickers itself in instead: each
+        // sprite blinks on (flashIn) as its texture arrives (see images.forEach).
 
         // ── Renderer
         const renderer = new THREE.WebGLRenderer({
@@ -59,12 +57,116 @@ const images = docs.map((doc) => ({
         );
         camera.position.z = 1;
 
+        // ── Motion blur: a directional *radial* (zoom) blur. The scene is drawn
+        //    to an off-screen target, then a full-screen quad re-samples it,
+        //    streaking each pixel toward (zoom-in) or away from (zoom-out) the
+        //    frame centre. Strength is driven by dolly speed — how fast the
+        //    camera distance is changing — so pure orbiting stays sharp and the
+        //    streak only appears on a zoom. The output quad uses NoBlending and
+        //    we clear every frame, so unlike EffectComposer nothing can trail.
+        renderer.setClearColor(0x000000, 0);
+        const BLUR_K = 0.4; // dolly-speed → streak-strength gain
+        const BLUR_MAX = 0.02; // ceiling on streak (fraction of frame; subtle)
+        const BLUR_SAMPLES = 16; // taps along the streak — dense = smooth, not a copy
+        let prevDist = camera.position.length();
+        let blurStrength = 0;
+
+        const dbSize = renderer.getDrawingBufferSize(new THREE.Vector2());
+        const sceneTarget = new THREE.WebGLRenderTarget(dbSize.x, dbSize.y, {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            samples: 4, // keep MSAA anti-aliasing through the off-screen hop
+        });
+        // The scene is written into this target in linear working space, and we
+        // sample it raw, so we re-encode ourselves in the shader (see `grade`).
+        sceneTarget.texture.colorSpace = THREE.LinearSRGBColorSpace;
+
+        const blurScene = new THREE.Scene();
+        const blurCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        // Rendering the scene to an off-screen target skips the extra sRGB encode
+        // the old direct-to-canvas render applied, which made the images look
+        // punchier. `grade` re-applies that soft encode partway to taste:
+        // 0 = raw/punchy, 1 = the original softer look. Both the passthrough and
+        // blur materials share it, so the look never pops when the blur kicks in.
+        const CONTRAST_MIX = 0.5;
+        // Grade the *true* colour: the target is premultiplied (colour × alpha),
+        // so we un-premultiply, apply the soft-encode curve, then re-premultiply
+        // with alpha untouched. Running pow() straight on premultiplied RGB
+        // would over-brighten low-alpha pixels (sprite edges, blur-streak tails)
+        // into a fringe that reads as a ghost/duplicate behind each image.
+        const GRADE = /* glsl */ `
+            vec4 grade(vec4 c) {
+                if (c.a <= 0.0) return c;
+                vec3 s = c.rgb / c.a;
+                vec3 soft = pow(max(s, 0.0), vec3(1.0 / 2.2));
+                return vec4(mix(s, soft, float(${CONTRAST_MIX})) * c.a, c.a);
+            }
+        `;
+        const VERT = /* glsl */ `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = vec4(position.xy, 0.0, 1.0);
+            }
+        `;
+        const noBlend = {
+            blending: THREE.NoBlending, // overwrite the canvas fully — no trail
+            depthTest: false,
+            depthWrite: false,
+        } as const;
+
+        // Cheap path: a single tap + grade. Used whenever the camera isn't
+        // zooming (i.e. almost always) so idle frames skip the multi-tap loop.
+        const passMat = new THREE.ShaderMaterial({
+            ...noBlend,
+            uniforms: { tScene: { value: sceneTarget.texture } },
+            vertexShader: VERT,
+            fragmentShader: /* glsl */ `
+                uniform sampler2D tScene;
+                varying vec2 vUv;
+                ${GRADE}
+                void main() {
+                    gl_FragColor = grade(texture2D(tScene, vUv));
+                }
+            `,
+        });
+
+        // Blur path: N taps along the streak + grade. Only bound while zooming.
+        const blurMat = new THREE.ShaderMaterial({
+            ...noBlend,
+            uniforms: {
+                tScene: { value: sceneTarget.texture },
+                uStrength: { value: 0 }, // signed: + streaks toward centre
+                uCenter: { value: new THREE.Vector2(0.5, 0.5) },
+            },
+            vertexShader: VERT,
+            fragmentShader: /* glsl */ `
+                uniform sampler2D tScene;
+                uniform float uStrength;
+                uniform vec2 uCenter;
+                varying vec2 vUv;
+                ${GRADE}
+                void main() {
+                    vec2 dir = (uCenter - vUv) * uStrength;
+                    vec4 sum = vec4(0.0);
+                    for (int i = 0; i < ${BLUR_SAMPLES}; i++) {
+                        float t = float(i) / float(${BLUR_SAMPLES} - 1); // 0..1
+                        sum += texture2D(tScene, vUv + dir * t);
+                    }
+                    gl_FragColor = grade(sum / float(${BLUR_SAMPLES}));
+                }
+            `,
+        });
+        const blurQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), passMat);
+        blurScene.add(blurQuad);
+
         // ── Controls
         const controls = new OrbitControls(camera, canvas);
         controls.enableDamping = true;
         controls.enablePan = false;
         controls.dampingFactor = 0.05;
-        controls.minDistance = 1;
+        controls.minDistance = 0.5;
         controls.maxDistance = 7;
 
         // Track real user interaction (drag start/end) rather than every damped
@@ -84,6 +186,7 @@ const images = docs.map((doc) => ({
         //    controls and auto-rotation are suspended and we look at `lookTarget`
         //    ourselves. `savedCamPos` is where the orbit camera was, to fly back.
         let zoomed = false;
+        let zoomedSprite: THREE.Sprite | null = null;
         const lookTarget = new THREE.Vector3(0, 0, 0);
         let savedCamPos = camera.position.clone();
 
@@ -202,14 +305,44 @@ const images = docs.map((doc) => ({
         const sprites: THREE.Sprite[] = [];
         const loader = new THREE.TextureLoader();
 
+        // ── Proximity fade — as the camera pushes through the sphere shell a
+        //    sprite it's approaching dissolves instead of hard-clipping, so it
+        //    reads as passing *through* the image. Each sprite carries a base
+        //    `opacity` (driven by the layout tweens below); the render loop
+        //    multiplies that by a distance factor so the two never fight.
+        const FADE_NEAR = 0.15; // fully transparent at/under this camera distance
+        const FADE_FAR = 0.9; // fully opaque beyond this
+        const fadeFor = (dist: number) => {
+            const t = Math.min(
+                Math.max((dist - FADE_NEAR) / (FADE_FAR - FADE_NEAR), 0),
+                1,
+            );
+            return t * t * (3 - 2 * t); // smoothstep
+        };
+
         // ── Category filtering — `all` is the full sphere; a category re-packs
         //    just its images into a smaller sphere and relinks only those.
         let currentFilter = "all";
 
-        // Transition timings (seconds).
+        // Transition timings (seconds). T_MOVE/T_FADE_* drive the instant
+        // (non-animated) layout path used for initial + streaming loads.
         const T_MOVE = 1.0;
         const T_FADE_OUT = 0.4;
         const T_FADE_IN = 0.6;
+
+        // Flash transition (used for every animated filter change now — category
+        // ↔ category and all ↔ filter alike). Nothing glides: the outgoing set
+        // blinks out, the incoming set blinks in, and images that persist across
+        // the change blink out, reposition while invisible, then blink back in.
+        const FLASH_OUT_DUR = 0.2;
+        const FLASH_IN_DUR = 0.24;
+        const FLASH_OUT_STEP = 0.022; // stagger between leaving sprites
+        const FLASH_IN_STEP = 0.032; // stagger between arriving sprites
+        const FLASH_IN_LEAD = 0.16; // arrive wave waits this long for the clear-out
+        // Cap on how long a wave takes to sweep its whole set, so the big all↔
+        // filter sets stay as snappy as a ~25-image category (small sets, which
+        // never hit the cap, keep the exact per-item feel you tuned).
+        const MAX_WAVE = 1.2;
 
         const mat = (s: THREE.Sprite) => s.material as THREE.SpriteMaterial;
 
@@ -218,12 +351,12 @@ const images = docs.map((doc) => ({
         function hideSprite(s: THREE.Sprite, animate: boolean) {
             gsap.killTweensOf(s.position);
             if (!animate) {
-                mat(s).opacity = 0;
+                s.userData.opacity = 0;
                 s.visible = false;
                 return;
             }
-            gsap.killTweensOf(mat(s));
-            gsap.to(mat(s), {
+            gsap.killTweensOf(s.userData);
+            gsap.to(s.userData, {
                 opacity: 0,
                 duration: T_FADE_OUT,
                 ease: "power2.in",
@@ -241,7 +374,7 @@ const images = docs.map((doc) => ({
         ) {
             if (!animate) {
                 s.position.copy(target);
-                mat(s).opacity = 1;
+                s.userData.opacity = 1;
                 return;
             }
             gsap.to(s.position, {
@@ -251,8 +384,8 @@ const images = docs.map((doc) => ({
                 duration: T_MOVE,
                 ease: "power2.inOut",
             });
-            gsap.killTweensOf(mat(s));
-            gsap.to(mat(s), {
+            gsap.killTweensOf(s.userData);
+            gsap.to(s.userData, {
                 opacity: 1,
                 duration: T_FADE_IN,
                 ease: "power2.out",
@@ -267,19 +400,19 @@ const images = docs.map((doc) => ({
             animate: boolean,
         ) {
             gsap.killTweensOf(s.position);
-            gsap.killTweensOf(mat(s));
+            gsap.killTweensOf(s.userData);
             gsap.killTweensOf(s.scale);
             s.position.copy(target);
             s.visible = true;
             const base = s.userData.baseScale as THREE.Vector3;
             if (!animate) {
-                mat(s).opacity = 1;
+                s.userData.opacity = 1;
                 s.scale.copy(base);
                 return;
             }
-            mat(s).opacity = 0;
+            s.userData.opacity = 0;
             s.scale.set(base.x * 0.7, base.y * 0.7, 1);
-            gsap.to(mat(s), {
+            gsap.to(s.userData, {
                 opacity: 1,
                 duration: T_FADE_IN,
                 ease: "power2.out",
@@ -292,15 +425,91 @@ const images = docs.map((doc) => ({
             });
         }
 
-        function applyEdges(positions: number[], animate: boolean) {
+        // Flash-out: a leaving sprite blinks out in place (no move, no scale)
+        // with a short flicker, offset by `delay` (its slot in the wave).
+        function flashOut(s: THREE.Sprite, delay: number) {
+            gsap.killTweensOf(s.position);
+            gsap.killTweensOf(s.userData);
+            gsap.killTweensOf(s.scale);
+            s.scale.copy(s.userData.baseScale as THREE.Vector3);
+            gsap.to(s.userData, {
+                keyframes: {
+                    opacity: [s.userData.opacity as number, 0.35, 0.7, 0],
+                    easeEach: "power1.inOut",
+                },
+                duration: FLASH_OUT_DUR,
+                delay: delay + Math.random() * 0.03,
+                onComplete: () => {
+                    s.visible = false;
+                },
+            });
+        }
+
+        // Flash-in: an entering sprite materialises at its slot (no scale) and
+        // blinks on — full, a quick dip, then full — offset by `delay`.
+        function flashIn(s: THREE.Sprite, target: THREE.Vector3, delay: number) {
+            gsap.killTweensOf(s.position);
+            gsap.killTweensOf(s.userData);
+            gsap.killTweensOf(s.scale);
+            s.position.copy(target);
+            s.scale.copy(s.userData.baseScale as THREE.Vector3);
+            s.userData.opacity = 0;
+            s.visible = true;
+            gsap.to(s.userData, {
+                keyframes: {
+                    opacity: [0, 1, 0.4, 1],
+                    easeEach: "power1.inOut",
+                },
+                duration: FLASH_IN_DUR,
+                delay: delay + Math.random() * 0.04,
+            });
+        }
+
+        // Blink-reposition: a sprite that persists across the change (e.g. the
+        // active category when going to/from `all`) can't just glide without
+        // reading as "movement", so it blinks out, teleports to its new slot
+        // while invisible, then blinks back in — same flicker language, no glide.
+        function blinkReposition(
+            s: THREE.Sprite,
+            target: THREE.Vector3,
+            delay: number,
+        ) {
+            gsap.killTweensOf(s.position);
+            gsap.killTweensOf(s.userData);
+            gsap.killTweensOf(s.scale);
+            s.scale.copy(s.userData.baseScale as THREE.Vector3);
+            s.visible = true;
+            gsap
+                .timeline({ delay })
+                .to(s.userData, {
+                    keyframes: {
+                        opacity: [s.userData.opacity as number, 0.35, 0],
+                        easeEach: "power1.inOut",
+                    },
+                    duration: FLASH_OUT_DUR,
+                })
+                .add(() => s.position.copy(target)) // move under cover of black
+                .to(s.userData, {
+                    keyframes: { opacity: [0, 1, 0.4, 1], easeEach: "power1.inOut" },
+                    duration: FLASH_IN_DUR,
+                });
+        }
+
+        function applyEdges(
+            positions: number[],
+            animate: boolean,
+            quick = false,
+        ) {
             if (!animate) {
                 setEdges(positions);
                 lineMat.opacity = 0.2;
                 return;
             }
-            // Fade the web out, swap links once the sprites have settled, fade in.
+            // Fade the web out, swap links once the sprites have settled, fade
+            // in. The flash transition is snappier, so the swap comes sooner.
+            const swapAt = quick ? 0.4 : 1.0;
             gsap.to(lineMat, { opacity: 0, duration: 0.3, ease: "power2.out" });
-            gsap.delayedCall(1.0, () => {
+            gsap.delayedCall(swapAt, () => {
                 setEdges(positions);
                 gsap.to(lineMat, {
                     opacity: 0.2,
@@ -311,13 +520,25 @@ const images = docs.map((doc) => ({
         }
 
         function relayout(animate: boolean) {
-            // Resolve which sprites are shown and where each one lands.
+            // Resolve which sprites are shown and where each one lands. `order`
+            // records each shown sprite's slot in its layout (packed spiral for a
+            // category, top-to-bottom for `all`); the flash wave staggers by it.
             const targets = new Map<THREE.Sprite, THREE.Vector3>();
+            const order = new Map<THREE.Sprite, number>();
             let edges: number[];
             if (currentFilter === "all") {
                 sprites.forEach((s) =>
                     targets.set(s, allNodes[s.userData.slot]),
                 );
+                // Rank by vertical slot position so the wave sweeps top→bottom.
+                sprites
+                    .slice()
+                    .sort(
+                        (a, b) =>
+                            allNodes[b.userData.slot].y -
+                            allNodes[a.userData.slot].y,
+                    )
+                    .forEach((s, k) => order.set(s, k));
                 edges = fullEdges;
             } else {
                 const shown = sprites
@@ -327,23 +548,59 @@ const images = docs.map((doc) => ({
                     shown.length,
                     radiusFor(shown.length),
                 );
-                shown.forEach((s, k) => targets.set(s, nodes[k]));
+                shown.forEach((s, k) => {
+                    targets.set(s, nodes[k]);
+                    order.set(s, k);
+                });
                 edges = computeEdges(nodes);
             }
 
-            sprites.forEach((s) => {
-                const target = targets.get(s);
-                if (!target) {
-                    hideSprite(s, animate);
-                    return;
-                }
-                // Sprites that were off-screen appear in place; visible ones glide.
-                const hidden = !s.visible || mat(s).opacity < 0.05;
-                if (hidden) revealSprite(s, target, animate);
-                else moveSprite(s, target, animate);
-            });
+            const isHidden = (s: THREE.Sprite) =>
+                !s.visible || (s.userData.opacity as number) < 0.05;
 
-            applyEdges(edges, animate);
+            if (animate) {
+                // Every animated change is a flash: the outgoing set blinks out
+                // top-to-bottom, then the incoming set blinks in. Sprites that
+                // persist (a category kept across an all↔filter switch) blink
+                // out → reposition → blink in, so nothing ever visibly glides.
+                const leavers = sprites.filter(
+                    (s) => !targets.get(s) && !isHidden(s),
+                );
+                leavers.sort((a, b) => b.position.y - a.position.y);
+                const outStep = Math.min(
+                    FLASH_OUT_STEP,
+                    MAX_WAVE / Math.max(leavers.length - 1, 1),
+                );
+                leavers.forEach((s, i) => flashOut(s, i * outStep));
+
+                // Arriving sprites (everything in the new layout), in wave order.
+                const arrivers = sprites
+                    .filter((s) => targets.get(s))
+                    .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+                const inStep = Math.min(
+                    FLASH_IN_STEP,
+                    MAX_WAVE / Math.max(arrivers.length - 1, 1),
+                );
+                arrivers.forEach((s, i) => {
+                    const target = targets.get(s)!;
+                    const delay = FLASH_IN_LEAD + i * inStep;
+                    if (isHidden(s)) flashIn(s, target, delay);
+                    else blinkReposition(s, target, delay);
+                });
+            } else {
+                // Instant (no animation): initial layout / streaming loads.
+                sprites.forEach((s) => {
+                    const target = targets.get(s);
+                    if (!target) {
+                        hideSprite(s, false);
+                        return;
+                    }
+                    if (isHidden(s)) revealSprite(s, target, false);
+                    else moveSprite(s, target, false);
+                });
+            }
+
+            applyEdges(edges, animate, true);
         }
 
         images.forEach(({ thumb, full, category }, i) => {
@@ -363,15 +620,25 @@ const images = docs.map((doc) => ({
                     slot: slots[i],
                     category,
                     baseScale: sprite.scale.clone(),
+                    opacity: 1, // base opacity; render loop scales it by proximity
+                    thumbTex: texture, // low-res map, restored on zoom-out
+                    hiTex: null as THREE.Texture | null, // high-res, loaded on zoom
                 };
                 sprite.visible =
                     currentFilter === "all" || category === currentFilter;
                 group.add(sprite);
                 sprites.push(sprite);
                 // If a category is active while textures still stream in, fold
-                // newly-loaded matches into the packed layout.
+                // newly-loaded matches into the packed layout first.
                 if (currentFilter !== "all" && category === currentFilter) {
                     relayout(false);
+                }
+                // Flicker each sprite in as its texture arrives, so the scene
+                // "loads in" with the same blink language as the filters instead
+                // of a canvas fade. Network arrival order gives an organic wave;
+                // the small random delay keeps it from snapping in all at once.
+                if (sprite.visible) {
+                    flashIn(sprite, sprite.position.clone(), Math.random() * 0.3);
                 }
             });
         });
@@ -389,9 +656,28 @@ const images = docs.map((doc) => ({
         function zoomToSprite(sprite: THREE.Sprite) {
             if (zoomed) return;
             zoomed = true;
+            zoomedSprite = sprite;
             controls.enabled = false;
             lastInteractionTime = Date.now();
             savedCamPos = camera.position.clone();
+
+            // Pull the high-res texture for just this sprite and swap it in when
+            // ready. If the user has already zoomed back out (or onto another
+            // image) by the time it lands, discard it.
+            if (!sprite.userData.hiTex) {
+                loader.load(sprite.userData.url as string, (tex) => {
+                    if (!zoomed || zoomedSprite !== sprite) {
+                        tex.dispose();
+                        return;
+                    }
+                    const thumbTex = sprite.userData.thumbTex as THREE.Texture;
+                    tex.colorSpace = thumbTex.colorSpace;
+                    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    sprite.userData.hiTex = tex;
+                    mat(sprite).map = tex;
+                    mat(sprite).needsUpdate = true;
+                });
+            }
 
             const worldP = new THREE.Vector3();
             sprite.getWorldPosition(worldP);
@@ -427,6 +713,19 @@ const images = docs.map((doc) => ({
         function zoomOut() {
             if (!zoomed) return;
             lastInteractionTime = Date.now();
+
+            // Restore the light thumbnail and release the high-res texture so
+            // GPU memory stays flat no matter how many images get inspected.
+            if (zoomedSprite) {
+                const s = zoomedSprite;
+                if (s.userData.hiTex) {
+                    mat(s).map = s.userData.thumbTex as THREE.Texture;
+                    mat(s).needsUpdate = true;
+                    (s.userData.hiTex as THREE.Texture).dispose();
+                    s.userData.hiTex = null;
+                }
+                zoomedSprite = null;
+            }
             gsap.to(camera.position, {
                 x: savedCamPos.x,
                 y: savedCamPos.y,
@@ -490,6 +789,8 @@ const images = docs.map((doc) => ({
             camera.aspect = w / h;
             camera.updateProjectionMatrix();
             renderer.setSize(w, h, false);
+            const db = renderer.getDrawingBufferSize(new THREE.Vector2());
+            sceneTarget.setSize(db.x, db.y);
         });
         ro.observe(canvas);
 
@@ -500,6 +801,7 @@ const images = docs.map((doc) => ({
         function startLoop() {
             if (running) return;
             running = true;
+            const wp = new THREE.Vector3();
             function tick() {
                 if (!running) return;
                 rafId = requestAnimationFrame(tick);
@@ -511,7 +813,52 @@ const images = docs.map((doc) => ({
                     if (!interacting && Date.now() - lastInteractionTime > 1200)
                         group.rotation.y += 0.0015;
                 }
+
+                // Proximity fade — skip while zoomed so the framed image stays
+                // fully opaque even though the camera sits close to it.
+                for (const s of sprites) {
+                    if (!s.visible) continue;
+                    let prox = 1;
+                    if (!zoomed) {
+                        s.getWorldPosition(wp);
+                        prox = fadeFor(camera.position.distanceTo(wp));
+                    }
+                    mat(s).opacity = s.userData.opacity * prox;
+                }
+
+                // Streak strength follows dolly speed (how fast the camera
+                // distance is changing). Positive when zooming in → streak
+                // toward centre; negative when zooming out → streak outward.
+                const dist = camera.position.length();
+                const dolly = prevDist - dist;
+                prevDist = dist;
+                const target = THREE.MathUtils.clamp(
+                    dolly * BLUR_K,
+                    -BLUR_MAX,
+                    BLUR_MAX,
+                );
+                blurStrength += (target - blurStrength) * 0.3;
+                if (Math.abs(blurStrength) < 0.0004) blurStrength = 0;
+
+                // Only pay for the multi-tap streak while actually zooming; the
+                // rest of the time a single-tap passthrough does the grade.
+                if (blurStrength !== 0) {
+                    blurQuad.material = blurMat;
+                    blurMat.uniforms.uStrength.value = blurStrength;
+                } else {
+                    blurQuad.material = passMat;
+                }
+
+                // Draw the scene off-screen, then re-sample it to the canvas.
+                // The explicit clears matter: with an MSAA target, autoClear
+                // doesn't reliably wipe the multisample buffer on every driver,
+                // and a stale sceneTarget resolves as a camera-tracking ghost.
+                renderer.setRenderTarget(sceneTarget);
+                renderer.clear();
                 renderer.render(scene, camera);
+                renderer.setRenderTarget(null);
+                renderer.clear();
+                renderer.render(blurScene, blurCam);
             }
             tick();
         }
@@ -548,8 +895,14 @@ const images = docs.map((doc) => ({
                 gsap.killTweensOf(s.position);
                 gsap.killTweensOf(s.scale);
                 gsap.killTweensOf(s.material);
+                gsap.killTweensOf(s.userData);
+                (s.userData.hiTex as THREE.Texture | null)?.dispose();
             });
             controls.dispose();
+            sceneTarget.dispose();
+            blurMat.dispose();
+            passMat.dispose();
+            blurQuad.geometry.dispose();
             renderer.dispose();
         };
     }

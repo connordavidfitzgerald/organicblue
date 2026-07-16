@@ -13,32 +13,52 @@ const collections = await getArchiveCollections();
         style="bottom: var(--nav-h, 3.5rem);"
     >
         {
-            collections.map((c) => (
-                <a
-                    href={`/archive/${c.slug}`}
-                    class="h-full w-full rounded-xs bg-grey overflow-hidden flex items-center justify-center transition-opacity hover:opacity-80"
-                >
-                    {c.coverImage ? (
-                        <img
-                            src={urlFor(c.coverImage)
+            collections.map((c) => {
+                // Cover at rest, then cycle through preview images on hover.
+                const sources = [
+                    ...(c.coverImage ? [c.coverImage] : []),
+                    ...(c.previewImages ?? []),
+                ];
+                const urls = [
+                    ...new Set(
+                        sources.map((img) =>
+                            urlFor(img)
                                 .width(1200)
                                 .height(1500)
                                 .fit("crop")
                                 .auto("format")
-                                .url()}
-                            alt={c.title}
-                            class="h-full w-full object-cover"
-                        />
-                    ) : (
-                        <span>{c.title}</span>
-                    )}
-                </a>
-            ))
+                                .url(),
+                        ),
+                    ),
+                ];
+                return (
+                    <a
+                        href={`/archive/${c.slug}`}
+                        data-flicker
+                        data-flicker-step="0.1"
+                        data-flicker-ease="power2.out"
+                        class="h-full w-full rounded-xs bg-grey overflow-hidden flex items-center justify-center"
+                    >
+                        {urls[0] ? (
+                            <img
+                                src={urls[0]}
+                                alt={c.title}
+                                data-hover-gallery={JSON.stringify(urls)}
+                                class="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <span>{c.title}</span>
+                        )}
+                    </a>
+                );
+            })
         }
     </div>
 </Layout>
 
 <script>
+    import "../scripts/hoverGallery";
+
     function sizeStage() {
         const nav = document.getElementById("navbar");
         const stage = document.getElementById("archive-stage");

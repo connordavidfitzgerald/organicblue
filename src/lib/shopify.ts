@@ -1,6 +1,10 @@
 const domain = import.meta.env.SHOPIFY_STORE_DOMAIN;
 const token = import.meta.env.SHOPIFY_STOREFRONT_TOKEN;
 
+// The store's myshopify.com domain — public (it appears in every checkout URL),
+// so it's safe to surface to the client for building checkout permalinks.
+export const storeDomain: string = domain ?? "";
+
 // True once real credentials are in .env (the template default doesn't count).
 export const shopifyConfigured =
     !!domain && !!token && domain !== "your-store.myshopify.com";

@@ -1,0 +1,169 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { Image } from "astro:assets";
+import SpecPanel from "../../components/shop/SpecPanel.astro";
+import type { Product } from "../../lib/products";
+
+export async function getStaticPaths() {
+    // Query lives inside getStaticPaths — Astro hoists this into its own module
+    // context, so it can't see module-scope frontmatter imports/consts.
+    const { getProducts } = await import("../../lib/products");
+    const products = await getProducts();
+    return products.map((p) => ({
+        params: { product: p.slug },
+        props: { product: p },
+    }));
+}
+
+const { product } = Astro.props as { product: Product };
+
+const cartImage = product.images[0]?.url ?? "";
+
+// One spec layout for every product. The distinguishing specs differ by product
+// (ES.RS / ES.ST expose volume + tuned_for; ES.CAP exposes sizing + technical
+// features), so column 1 lists all of them — SpecPanel skips any key a product
+// doesn't set, so each renders only its own two.
+const specColumns = [
+    [
+        { label: "Volume", key: "volume" },
+        { label: "Tuned for", key: "tuned_for" },
+        { label: "Sizing", key: "sizing" },
+        { label: "Technical Features", key: "technical_features" },
+    ],
+    [
+        { label: "Production", key: "production" },
+        { label: "Weight", key: "weight" },
+    ],
+    [{ label: "Materials", key: "materials" }],
+];
+
+// ES.RS ships a local gallery used when Shopify has no images for it; other
+// products fall back to a simple placeholder slot.
+const esrsModules = import.meta.glob(
+    "../../assets/images/esrs_assets/*.{png,jpg,jpeg,webp}",
+    { eager: true, import: "default" },
+) as Record<string, ImageMetadata>;
+const localGallery =
+    product.slug === "es-rs"
+        ? Object.entries(esrsModules)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([, img]) => img)
+        : [];
+---
+
+<Layout title={`${product.name} — Organic Blue`}>
+    {/* All product-page flicker timing is controlled here: data-flicker-soft
+       (gentler flash) + data-flicker-step / data-flicker-ease cascade to every
+       [data-flicker] tile inside via the flicker module's ancestor lookup. */}
+    <div
+        id="shop-stage"
+        data-flicker-soft
+        data-flicker-step="0.125"
+        class="fixed left-0 right-0 top-0 flex flex-row gap-0.5 px-0.5 pt-0.5 text-xs text-grey"
+        style="bottom: var(--nav-h, 3.5rem);"
+    >
+        <!-- Column 1: product info -->
+        <div class="flex w-full h-full flex-col gap-0.5">
+            <div
+                data-flicker
+                class="flex w-full px-1 py-1 rounded-xs grow flex-col justify-center items-center bg-black"
+            >
+                <div class="text-center">
+                    <p>{product.detailTitle}</p>
+                    {
+                        product.description && (
+                            <div
+                                class="prose-none"
+                                set:html={product.description}
+                            />
+                        )
+                    }
+                </div>
+            </div>
+            <button
+                type="button"
+                data-flicker
+                data-add-to-cart
+                data-slug={product.slug}
+                data-variant-id={product.variantId}
+                data-name={product.name}
+                data-price={product.price}
+                data-image={cartImage}
+                class="flex w-full px-1 py-1 rounded-xs h-6 flex-row justify-between bg-black text-grey transition-colors hover:bg-grey hover:text-black"
+            >
+                <span>Add to cart</span>
+                <span>{product.price}</span>
+            </button>
+            <SpecPanel product={product} columns={specColumns} />
+        </div>
+
+        <!-- Column 2: gallery — Shopify images, else the local set (ES.RS),
+             else a placeholder slot. -->
+        {
+            product.images.length > 0 ? (
+                <div
+                    data-flicker
+                    class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black"
+                >
+                    {product.images.map((img, i) => (
+                        <div class="h-full w-full snap-start snap-always">
+                            <img
+                                src={img.full}
+                                alt={img.alt}
+                                loading={i === 0 ? "eager" : "lazy"}
+                                decoding="async"
+                                class="w-full h-full object-cover rounded-xs"
+                            />
+                        </div>
+                    ))}
+                </div>
+            ) : localGallery.length > 0 ? (
+                <div
+                    data-flicker
+                    class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black"
+                >
+                    {localGallery.map((img, i) => (
+                        <div class="h-full w-full snap-start snap-always">
+                            <Image
+                                src={img}
+                                alt={`${product.name} view ${i + 1}`}
+                                class="w-full h-full object-cover rounded-xs"
+                            />
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div
+                    data-flicker
+                    class="h-full w-full rounded-xs bg-grey flex items-center justify-center text-black"
+                >
+                    {product.name} image
+                </div>
+            )
+        }
+    </div>
+</Layout>
+
+<style>
+    /* Hide the scrollbar on the gallery column */
+    .shop-gallery {
+        scrollbar-width: none;
+    }
+    .shop-gallery::-webkit-scrollbar {
+        display: none;
+    }
+</style>
+
+<script>
+    import "../../scripts/textReveal";
+
+    function sizeStage() {
+        const nav = document.getElementById("navbar");
+        const stage = document.getElementById("shop-stage");
+        if (!nav || !stage) return;
+        stage.style.setProperty("--nav-h", `${nav.offsetHeight}px`);
+    }
+
+    document.addEventListener("astro:page-load", sizeStage);
+    window.addEventListener("resize", sizeStage);
+</script>

@@ -2,7 +2,10 @@ import { shopify, shopifyConfigured } from "./shopify";
 import { products as fallbackProducts } from "../data/products";
 
 export interface ProductImage {
+    // Display-optimized WebP (~1000px) — shop grid tiles + cart thumbnail.
     url: string;
+    // High-quality WebP (~2000px, capped at the original) — detail gallery.
+    full: string;
     alt: string;
 }
 
@@ -10,6 +13,9 @@ export interface Product {
     slug: string; // maps to the Shopify product handle
     name: string; // short name, e.g. "ES.RS" — used in the navbar
     price: string; // e.g. "590 CAD"
+    // Numeric ID of the first variant, used to build the Shopify checkout
+    // permalink. Empty in fallback mode.
+    variantId: string;
     detailTitle: string; // heading shown on the product detail page
     description: string; // HTML from Shopify (empty in fallback)
     images: ProductImage[];
@@ -46,7 +52,14 @@ const PRODUCT_FIELDS = `
     title
     descriptionHtml
     priceRange { minVariantPrice { amount currencyCode } }
-    images(first: 20) { nodes { url altText } }
+    variants(first: 1) { nodes { id } }
+    images(first: 20) {
+        nodes {
+            altText
+            url(transform: { maxWidth: 1600, preferredContentType: WEBP })
+            fullUrl: url(transform: { maxWidth: 1600, preferredContentType: WEBP })
+        }
+    }
     metafields(identifiers: [${METAFIELD_IDENTIFIERS}]) { key value type }
 `;
 
@@ -76,14 +89,19 @@ function mapShopify(p: any): Product {
         }
         specs[mf.key] = parseMetafield(mf.value, mf.type);
     }
+    // Storefront IDs are GIDs (gid://shopify/ProductVariant/123); the checkout
+    // permalink wants the trailing numeric part.
+    const variantGid: string = p.variants?.nodes?.[0]?.id ?? "";
     return {
         slug: p.handle,
         name: p.title,
         price: money(price.amount, price.currencyCode),
+        variantId: variantGid.split("/").pop() ?? "",
         detailTitle: detailTitle || p.title,
         description: p.descriptionHtml ?? "",
         images: p.images.nodes.map((i: any) => ({
             url: i.url,
+            full: i.fullUrl,
             alt: i.altText ?? p.title,
         })),
         specs,
@@ -99,6 +117,7 @@ function fromFallback(p: {
 }): Product {
     return {
         ...p,
+        variantId: "",
         detailTitle: p.name,
         description: "",
         images: [],

@@ -16,6 +16,9 @@ export interface ArchiveCollectionSummary {
   title: string
   slug: string
   coverImage: SanityImageSource | null
+  // A few images from the collection, used for the hover-to-next preview on the
+  // archive index.
+  previewImages: SanityImageSource[] | null
 }
 
 export interface ArchiveCollectionDetail {
@@ -35,7 +38,8 @@ const ARCHIVE_COLLECTIONS_QUERY = defineQuery(`
     _id,
     title,
     "slug": slug.current,
-    coverImage
+    coverImage,
+    "previewImages": images[0...6]
   }
 `)
 

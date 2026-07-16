@@ -11,7 +11,7 @@ interface Props {
 const { title = "organicblue", isHome = false } = Astro.props;
 ---
 
-<html lang="en">
+<html lang="en" transition:animate="none">
     <head>
         <meta charset="utf-8" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -20,8 +20,31 @@ const { title = "organicblue", isHome = false } = Astro.props;
         <meta name="generator" content={Astro.generator} />
         <title>{title}</title>
         <ClientRouter />
+        {/* On the initial hard load, pre-hide the navbar tiles so they flicker
+           in cleanly with the rest of the interface instead of painting first.
+           The class is dropped after the first sweep; later navigations keep
+           persistent tiles visible and only diff what changed. */}
+        <script is:inline>
+            document.documentElement.classList.add("nav-boot");
+        </script>
+        <style>
+            html.nav-boot [data-nav-flicker] {
+                opacity: 0;
+            }
+        </style>
+        {/* Content flickers in via the shared flicker language; keep flicker
+           elements visible when JS is unavailable. */}
+        <noscript>
+            <style>
+                [data-flicker],
+                html.nav-boot [data-nav-flicker] {
+                    opacity: 1 !important;
+                }
+            </style>
+        </noscript>
         <script>
             import "@mux/mux-player";
+            import "../scripts/flicker";
         </script>
     </head>
     <body data-page={isHome ? "home" : "inner"}>
