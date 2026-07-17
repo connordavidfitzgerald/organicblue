@@ -29,11 +29,13 @@
 }
 
 /* ── Entrance animations ──────────────────────────────────────────────────
-   `data-flicker` (blink in, src/scripts/flicker.ts) and `data-fade-in`
-   (staggered fade, src/scripts/fadeIn.ts) both start hidden and are revealed by
-   JS. Inline opacity set by GSAP overrides this. */
+   `data-flicker` (blink in, src/scripts/flicker.ts), `data-fade-in` (staggered
+   fade, src/scripts/fadeIn.ts), and `data-text-reveal` (the spec tile, revealed
+   instantly by src/scripts/textReveal.ts before its rows cascade) all start
+   hidden and are revealed by JS. Inline opacity set by JS overrides this. */
 [data-flicker],
-[data-fade-in] {
+[data-fade-in],
+[data-text-reveal] {
     opacity: 0;
 }
 
@@ -53,10 +55,51 @@
     animation: none;
 }
 
-/* No motion: skip the flicker entirely, show everything immediately. */
+/* No motion: skip the entrance animations entirely, show everything
+   immediately. (textReveal.ts bails under reduced motion, so the tile relies on
+   this to un-hide.) */
 @media (prefers-reduced-motion: reduce) {
     [data-flicker],
-    [data-fade-in] {
+    [data-fade-in],
+    [data-text-reveal] {
         opacity: 1;
+    }
+}
+
+/* ── Homepage intro ───────────────────────────────────────────────────────
+   On the first hard load of the homepage, `home-intro` (set on <html> in the
+   Layout head) tucks the navbar off-screen, blurs the video, and shows a
+   click-to-enter overlay whose logo + [ Enter ] stagger in. The first click
+   clears the class: the navbar slides up, the video unblurs, and the overlay
+   fades out. */
+#navbar {
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html.home-intro #navbar {
+    transform: translateY(100%);
+}
+#home-video {
+    transition:
+        filter 0.8s ease,
+        transform 0.8s ease;
+}
+html.home-intro #home-video {
+    filter: blur(20px);
+    transform: scale(1.08); /* hide the blur's translucent edges */
+}
+#home-intro {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+}
+html.home-intro #home-intro {
+    opacity: 1;
+    pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+    #navbar,
+    #home-intro,
+    #home-video {
+        transition: none;
     }
 }

@@ -1,18 +1,18 @@
-import { gsap } from "gsap";
-
 // ── Hover gallery ──────────────────────────────────────────────────────────
 // On the shop/archive index grids:
 //   • hovering a tile cycles its image through the rest and back (per <img>), and
-//   • fades the *other* tiles down so the hovered one stands out (per grid).
+//   • dims the *other* images so the hovered one stands out (per grid).
 // Each tile's image list is a JSON array of URLs on `data-hover-gallery`; a grid
 // that should dim its non-hovered tiles carries `data-hover-dim`.
 //
-// The dim runs through GSAP rather than a CSS transition on purpose: the tiles
-// keep the inline opacity GSAP leaves after their flicker-in, and a CSS
-// transition on that same property would smear the flicker animation on load.
+// The dim multiplies the non-hovered images into the tiles' #3f3f3f background
+// and drops them to 30% opacity. mix-blend-mode isn't animatable, so it toggles
+// instantly while a CSS transition fades the opacity — its own channel, so it
+// never touches the inline opacity the fade-in leaves on the tiles, and it
+// interrupts cleanly when you move between tiles mid-hover.
 
 const CYCLE_MS = 1000;
-const DIM = 0.1; // opacity of the non-hovered tiles
+const DIM_OPACITY = 0.4; // opacity of the non-hovered images while dimmed
 const DIM_DUR = 0.3; // seconds
 
 const prefersReducedMotion = () =>
@@ -67,7 +67,10 @@ function wireDimming(grid: HTMLElement) {
     grid.dataset.hdWired = "1";
 
     const tiles = Array.from(grid.children) as HTMLElement[];
-    const dur = () => (prefersReducedMotion() ? 0 : DIM_DUR);
+    // Dim the image itself (falling back to the tile for image-less slots) so
+    // the multiply blends against the tile's own background.
+    const targetOf = (t: HTMLElement) =>
+        t.querySelector<HTMLElement>("img") ?? t;
 
     // The navbar row for a tile is the nav flicker link sharing its href.
     const navLabelFor = (tile: HTMLElement) => {
@@ -82,16 +85,17 @@ function wireDimming(grid: HTMLElement) {
     const setFocus = (hovered: HTMLElement | null) => {
         tiles.forEach((t) => {
             const dimmed = hovered !== null && t !== hovered;
-            gsap.to(t, {
-                opacity: dimmed ? DIM : 1,
-                duration: dur(),
-                overwrite: true,
-            });
+            const target = targetOf(t);
+            target.style.mixBlendMode = dimmed ? "multiply" : "normal";
+            target.style.opacity = dimmed ? String(DIM_OPACITY) : "1";
             navLabelFor(t)?.classList.toggle("nav-inverted", dimmed);
         });
     };
 
+    // The CSS transition fades the opacity; reduced motion swaps instantly.
+    const transition = prefersReducedMotion() ? "" : `opacity ${DIM_DUR}s`;
     tiles.forEach((tile) => {
+        targetOf(tile).style.transition = transition;
         tile.addEventListener("mouseenter", () => setFocus(tile));
     });
 

@@ -3,16 +3,39 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout title="Organic Blue" isHome={true}>
-    <div class="fixed inset-0 -z-10 overflow-hidden">
+    <div id="home-video" class="fixed inset-0.5 -z-10 overflow-hidden">
         <mux-player
-
-
             playback-id="qDlRrWP8z9ZWKxN5PjJZath003lYoGgEgBQPtH4V15uk"
             autoplay
             muted
             loop
+
             playsinline
             class="block w-full h-full"
             style="--media-object-fit: cover; --controls: none;"></mux-player>
+    </div>
+
+    {/* Intro overlay — shown only during `home-intro` (initial hard load of the
+       homepage). Clicking anywhere reveals the navbar and unblurs the video
+       (see Layout.astro + global.css). */}
+    <div id="home-intro" class="fixed inset-0 z-50 cursor-pointer text-white">
+        <svg
+            viewBox="0 0 54 32"
+            fill="currentColor"
+            xmlns="http://www.w3.org/2000/svg"
+            role="img"
+            aria-label="Organic Blue"
+            class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            style="width: 50px; height: auto;"
+        >
+            <path
+                d="M26.6406 0.00292969V0.138672L53.1602 31.4648H50.2959C46.5774 21.5941 37.3642 14.5998 26.5801 14.5703C15.7959 14.5998 6.58273 21.594 2.86426 31.4648H0L26.5195 0.138672V0.00292969L26.5225 0L26.5801 0.0673828L26.6377 0L26.6406 0.00292969Z"
+            ></path>
+        </svg>
+        <span
+            class="absolute bottom-[6.25rem] left-1/2 -translate-x-1/2 text-xs tracking-wide"
+        >
+            [ click to enter ]
+        </span>
     </div>
 </Layout>

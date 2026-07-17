@@ -16,10 +16,10 @@ interface Props {
 const { product, columns } = Astro.props;
 ---
 
-{/* The tile flickers in (data-flicker); its spec rows then cascade in
-   line-by-line via textReveal.ts (data-text-reveal). */}
+{/* The tile appears with no entrance effect; its spec rows then cascade in
+   line-by-line via textReveal.ts (data-text-reveal), which also reveals the
+   pre-hidden tile so the rows never flash before their cascade. */}
 <div
-    data-flicker
     data-text-reveal
     class="grid grid-cols-3 w-full px-1 py-1 rounded-xs h-fit bg-black"
 >

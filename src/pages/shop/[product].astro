@@ -51,14 +51,9 @@ const localGallery =
         : [];
 ---
 
-<Layout title="Organic Blue">
-    {/* All product-page flicker timing is controlled here: data-flicker-soft
-       (gentler flash) + data-flicker-step / data-flicker-ease cascade to every
-       [data-flicker] tile inside via the flicker module's ancestor lookup. */}
+<Layout title={`${product.name} — Organic Blue`}>
     <div
         id="shop-stage"
-        data-flicker-soft
-        data-flicker-step="0.125"
         class="fixed left-0 right-0 top-0 flex flex-row gap-0.5 px-0.5 pt-0.5 text-xs text-grey"
         style="bottom: var(--nav-h, 3.5rem);"
     >
@@ -82,7 +77,6 @@ const localGallery =
             </div>
             <button
                 type="button"
-                data-flicker
                 data-add-to-cart
                 data-slug={product.slug}
                 data-variant-id={product.variantId}
@@ -103,6 +97,8 @@ const localGallery =
             product.images.length > 0 ? (
                 <div
                     data-fade-in
+                    data-fade-in-duration="0.4"
+                    data-fade-in-ease="power2.inOut"
                     class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black"
                 >
                     {product.images.map((img, i) => (

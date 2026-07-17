@@ -26,6 +26,12 @@ const { title = "Organic Blue", isHome = false } = Astro.props;
            persistent tiles visible and only diff what changed. */}
         <script is:inline>
             document.documentElement.classList.add("nav-boot");
+            // Homepage intro: on the first hard load of "/", start with the
+            // navbar tucked off-screen behind a click-to-enter overlay. Set
+            // before first paint so neither flashes.
+            if (location.pathname === "/") {
+                document.documentElement.classList.add("home-intro");
+            }
         </script>
         <style>
             html.nav-boot [data-nav-flicker] {
@@ -38,6 +44,7 @@ const { title = "Organic Blue", isHome = false } = Astro.props;
             <style>
                 [data-flicker],
                 [data-fade-in],
+                [data-text-reveal],
                 html.nav-boot [data-nav-flicker] {
                     opacity: 1 !important;
                 }
@@ -46,6 +53,26 @@ const { title = "Organic Blue", isHome = false } = Astro.props;
         <script>
             import "@mux/mux-player";
             import "../scripts/flicker";
+
+            // Homepage intro: while `home-intro` is set (hard load of "/"), the
+            // navbar is hidden behind the click-to-enter overlay. Reveal it on
+            // the first click anywhere; clear the state when navigating away
+            // (the class lives on <html>, which survives client-side nav).
+            document.addEventListener("astro:page-load", () => {
+                const html = document.documentElement;
+                if (
+                    location.pathname === "/" &&
+                    html.classList.contains("home-intro")
+                ) {
+                    window.addEventListener(
+                        "click",
+                        () => html.classList.remove("home-intro"),
+                        { once: true },
+                    );
+                } else {
+                    html.classList.remove("home-intro");
+                }
+            });
         </script>
     </head>
     <body data-page={isHome ? "home" : "inner"}>
