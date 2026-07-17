@@ -73,7 +73,7 @@
    clears the class: the navbar slides up, the video unblurs, and the overlay
    fades out. */
 #navbar {
-    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
 }
 html.home-intro #navbar {
     transform: translateY(100%);
