@@ -5,7 +5,7 @@ import { getArchiveCollections, urlFor } from "../lib/sanity";
 const collections = await getArchiveCollections();
 ---
 
-<Layout title="Archive — Organic Blue">
+<Layout title="Organic Blue">
     <!-- Three collection columns, mirroring the shop index. -->
     <div
         id="archive-stage"
@@ -35,9 +35,10 @@ const collections = await getArchiveCollections();
                 return (
                     <a
                         href={`/archive/${c.slug}`}
-                        data-flicker
-                        data-flicker-step="0.1"
-                        data-flicker-ease="power2.out"
+                        data-fade-in
+                        data-fade-in-step="0.13"
+                        data-fade-in-duration="0.7"
+                        data-fade-in-ease="power3.out"
                         class="h-full w-full rounded-xs bg-grey overflow-hidden flex items-center justify-center"
                     >
                         {urls[0] ? (
@@ -59,6 +60,7 @@ const collections = await getArchiveCollections();
 
 <script>
     import "../scripts/hoverGallery";
+    import "../scripts/fadeIn";
 
     function sizeStage() {
         const nav = document.getElementById("navbar");

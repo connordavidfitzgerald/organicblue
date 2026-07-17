@@ -55,17 +55,17 @@ const shopActive = isActive("/shop");
         showFilters && (
             <>
                 <div
-                    data-nav-flicker
+
                     data-nav-key="filters-label"
                     data-nav-state="static"
-                    data-flicker-step="0.22"
+
                     class="cart-dim col-span-3 bg-black text-grey flex items-center w-full px-1 py-1 rounded-xs h-6.5"
                 >
                     Filters
                 </div>
                 <fieldset
                     id="exp-filters"
-                    data-nav-flicker
+
                     data-nav-key="filters"
                     data-nav-state="static"
                     data-flicker-step="0.22"
@@ -94,7 +94,7 @@ const shopActive = isActive("/shop");
             products.map((p) => (
                 <a
                     href={`/shop/${p.slug}`}
-                    data-nav-flicker
+
                     data-nav-key={`shop-${p.slug}`}
                     data-nav-state={
                         currentSlug === null || p.slug === currentSlug
@@ -124,7 +124,6 @@ const shopActive = isActive("/shop");
             collections.map((c) => (
                 <a
                     href={`/archive/${c.slug}`}
-                    data-nav-flicker
                     data-nav-key={`archive-${c.slug}`}
                     data-nav-state={
                         currentArchiveSlug === null ||
@@ -158,7 +157,6 @@ const shopActive = isActive("/shop");
                 <a
                     id="shop-nav"
                     href={href}
-                    data-nav-flicker
                     data-nav-key="nav-shop"
                     data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
@@ -185,7 +183,6 @@ const shopActive = isActive("/shop");
             ) : (
                 <a
                     href={href}
-                    data-nav-flicker
                     data-nav-key={`nav-${label.toLowerCase()}`}
                     data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
@@ -201,7 +198,7 @@ const shopActive = isActive("/shop");
     }
     <a
         href="/"
-        data-nav-flicker
+
         data-nav-key="nav-home"
         data-nav-state={isHome ? "on" : "off"}
         aria-label="organicblue — home"
@@ -265,7 +262,7 @@ const shopActive = isActive("/shop");
 }
 <div
     id="cart-overlay"
-    class="fixed inset-0 z-40 hidden bg-white/50 backdrop-blur-sm"
+    class="fixed inset-0 z-40 hidden bg-white/50 backdrop-blur-[4px]"
 >
 </div>
 
@@ -293,7 +290,7 @@ const shopActive = isActive("/shop");
         inset: 0;
         border-radius: inherit;
         background: rgb(255 255 255 / 0.5);
-        backdrop-filter: blur(2px);
+        backdrop-filter: blur(4px);
         pointer-events: none;
     }
 </style>

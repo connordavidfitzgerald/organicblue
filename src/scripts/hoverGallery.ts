@@ -11,7 +11,7 @@ import { gsap } from "gsap";
 // keep the inline opacity GSAP leaves after their flicker-in, and a CSS
 // transition on that same property would smear the flicker animation on load.
 
-const CYCLE_MS = 650;
+const CYCLE_MS = 1000;
 const DIM = 0.1; // opacity of the non-hovered tiles
 const DIM_DUR = 0.3; // seconds
 

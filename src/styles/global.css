@@ -28,10 +28,12 @@
     display: none;
 }
 
-/* ── Flicker-in ──────────────────────────────────────────────────────────
-   Elements tagged `data-flicker` start hidden and are blinked in by JS
-   (see src/scripts/flicker.ts). Inline opacity set by GSAP overrides this. */
-[data-flicker] {
+/* ── Entrance animations ──────────────────────────────────────────────────
+   `data-flicker` (blink in, src/scripts/flicker.ts) and `data-fade-in`
+   (staggered fade, src/scripts/fadeIn.ts) both start hidden and are revealed by
+   JS. Inline opacity set by GSAP overrides this. */
+[data-flicker],
+[data-fade-in] {
     opacity: 0;
 }
 
@@ -53,7 +55,8 @@
 
 /* No motion: skip the flicker entirely, show everything immediately. */
 @media (prefers-reduced-motion: reduce) {
-    [data-flicker] {
+    [data-flicker],
+    [data-fade-in] {
         opacity: 1;
     }
 }

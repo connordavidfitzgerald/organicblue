@@ -8,7 +8,7 @@ interface Props {
     isHome?: boolean;
 }
 
-const { title = "organicblue", isHome = false } = Astro.props;
+const { title = "Organic Blue", isHome = false } = Astro.props;
 ---
 
 <html lang="en" transition:animate="none">
@@ -37,6 +37,7 @@ const { title = "organicblue", isHome = false } = Astro.props;
         <noscript>
             <style>
                 [data-flicker],
+                [data-fade-in],
                 html.nav-boot [data-nav-flicker] {
                     opacity: 1 !important;
                 }

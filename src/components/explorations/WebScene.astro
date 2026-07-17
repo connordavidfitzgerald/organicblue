@@ -502,7 +502,7 @@ const images = docs.map((doc) => ({
         ) {
             if (!animate) {
                 setEdges(positions);
-                lineMat.opacity = 0.2;
+                lineMat.opacity = 0.3;
                 return;
             }
             // Fade the web out, swap links once the sprites have settled, fade
@@ -698,14 +698,14 @@ const images = docs.map((doc) => ({
                 y: camGoal.y,
                 z: camGoal.z,
                 duration: 1.1,
-                ease: "power3.inOut",
+                ease: "power2.inOut",
             });
             gsap.to(lookTarget, {
                 x: worldP.x,
                 y: worldP.y,
                 z: worldP.z,
                 duration: 1.1,
-                ease: "power3.inOut",
+                ease: "power2.inOut",
             });
         }
 
@@ -730,15 +730,15 @@ const images = docs.map((doc) => ({
                 x: savedCamPos.x,
                 y: savedCamPos.y,
                 z: savedCamPos.z,
-                duration: 1.0,
-                ease: "power3.inOut",
+                duration: 1.2,
+                ease: "power2.out",
             });
             gsap.to(lookTarget, {
                 x: 0,
                 y: 0,
                 z: 0,
-                duration: 1.0,
-                ease: "power3.inOut",
+                duration: 1.2,
+                ease: "power2.out",
                 onComplete: () => {
                     zoomed = false;
                     controls.enabled = true;

@@ -3,9 +3,19 @@ import Layout from "../layouts/Layout.astro";
 import { getProducts } from "../lib/products";
 
 const products = await getProducts();
+
+// Hover cycle uses a hand-picked subset of each product's photos rather than
+// every image. Numbers are 1-based, matching the photo order in Shopify. The
+// first pick doubles as the at-rest cover. Products not listed here fall back
+// to cycling through all their images.
+const HOVER_PICKS: Record<string, number[]> = {
+    "es-rs": [1, 2, 6],
+    "es-cap": [1, 2, 4],
+    "es-st": [1, 2, 5],
+};
 ---
 
-<Layout title="Shop — Organic Blue">
+<Layout title="Organic Blue">
     <!-- Three product columns, aligned with the navbar shop row above the nav. -->
     <div
         id="shop-stage"
@@ -15,14 +25,21 @@ const products = await getProducts();
     >
         {
             products.map((p) => {
-                // Cycle through all product images on hover; distinct URLs only.
-                const urls = [...new Set(p.images.map((img) => img.url))];
+                // Cycle through the hand-picked photos on hover (falling back to
+                // all images), keeping distinct URLs only. Out-of-range picks
+                // (e.g. fallback mode with no images) are dropped.
+                const picks = HOVER_PICKS[p.slug];
+                const selected = picks
+                    ? picks.map((n) => p.images[n - 1]).filter(Boolean)
+                    : p.images;
+                const urls = [...new Set(selected.map((img) => img.url))];
                 return (
                     <a
                         href={`/shop/${p.slug}`}
-                        data-flicker
-                        data-flicker-step="0.1"
-                        data-flicker-ease="power2.out"
+                        data-fade-in
+                        data-fade-in-step="0.13"
+                        data-fade-in-duration="0.7"
+                        data-fade-in-ease="power3.out"
                         class="h-full w-full rounded-xs bg-grey overflow-hidden flex items-center justify-center"
                     >
                         {urls[0] ? (
@@ -44,6 +61,7 @@ const products = await getProducts();
 
 <script>
     import "../scripts/hoverGallery";
+    import "../scripts/fadeIn";
 
     function sizeStage() {
         const nav = document.getElementById("navbar");

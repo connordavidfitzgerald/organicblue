@@ -51,7 +51,7 @@ const localGallery =
         : [];
 ---
 
-<Layout title={`${product.name} — Organic Blue`}>
+<Layout title="Organic Blue">
     {/* All product-page flicker timing is controlled here: data-flicker-soft
        (gentler flash) + data-flicker-step / data-flicker-ease cascade to every
        [data-flicker] tile inside via the flicker module's ancestor lookup. */}
@@ -65,7 +65,7 @@ const localGallery =
         <!-- Column 1: product info -->
         <div class="flex w-full h-full flex-col gap-0.5">
             <div
-                data-flicker
+
                 class="flex w-full px-1 py-1 rounded-xs grow flex-col justify-center items-center bg-black"
             >
                 <div class="text-center">
@@ -102,7 +102,7 @@ const localGallery =
         {
             product.images.length > 0 ? (
                 <div
-                    data-flicker
+                    data-fade-in
                     class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black"
                 >
                     {product.images.map((img, i) => (
@@ -119,7 +119,7 @@ const localGallery =
                 </div>
             ) : localGallery.length > 0 ? (
                 <div
-                    data-flicker
+                    data-fade-in
                     class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black"
                 >
                     {localGallery.map((img, i) => (
@@ -134,7 +134,7 @@ const localGallery =
                 </div>
             ) : (
                 <div
-                    data-flicker
+                    data-fade-in
                     class="h-full w-full rounded-xs bg-grey flex items-center justify-center text-black"
                 >
                     {product.name} image
@@ -156,6 +156,7 @@ const localGallery =
 
 <script>
     import "../../scripts/textReveal";
+    import "../../scripts/fadeIn";
 
     function sizeStage() {
         const nav = document.getElementById("navbar");
