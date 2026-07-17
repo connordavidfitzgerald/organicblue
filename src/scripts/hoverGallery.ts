@@ -13,7 +13,8 @@
 
 const CYCLE_MS = 1000;
 const DIM_OPACITY = 0.4; // opacity of the non-hovered images while dimmed
-const DIM_DUR = 0.3; // seconds
+const DIM_DUR = 0.2; // seconds
+const DIM_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"; // easing for the dim/undim
 
 const prefersReducedMotion = () =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -93,7 +94,9 @@ function wireDimming(grid: HTMLElement) {
     };
 
     // The CSS transition fades the opacity; reduced motion swaps instantly.
-    const transition = prefersReducedMotion() ? "" : `opacity ${DIM_DUR}s`;
+    const transition = prefersReducedMotion()
+        ? ""
+        : `opacity ${DIM_DUR}s ${DIM_EASE}`;
     tiles.forEach((tile) => {
         targetOf(tile).style.transition = transition;
         tile.addEventListener("mouseenter", () => setFocus(tile));
