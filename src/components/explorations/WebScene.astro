@@ -228,7 +228,7 @@ const images = docs.map((doc) => ({
 
         // ── Fibonacci-sphere layout, parameterised by node count
         const SPHERE_R = 2.55;
-        const MIN_R = 1.15;
+        const MIN_R = 1.65;
 
         // Keep the spacing between neighbouring sprites roughly constant no
         // matter how many are shown: nearest-neighbour distance scales like
@@ -374,7 +374,7 @@ const images = docs.map((doc) => ({
         // Cap on how long a wave takes to sweep its whole set, so the big all↔
         // filter sets stay as snappy as a ~25-image category (small sets, which
         // never hit the cap, keep the exact per-item feel you tuned).
-        const MAX_WAVE = 1.2;
+        const MAX_WAVE = 1;
 
         const mat = (s: THREE.Sprite) => s.material as THREE.SpriteMaterial;
 
