@@ -79,12 +79,12 @@ function wireDimming(grid: HTMLElement) {
     const targetOf = (t: HTMLElement) =>
         t.querySelector<HTMLElement>("img") ?? t;
 
-    // The navbar row for a tile is the nav flicker link sharing its href.
+    // The navbar row for a tile is the nav link sharing its href.
     const navLabelFor = (tile: HTMLElement) => {
         const href = tile.getAttribute("href");
         return href
             ? document.querySelector<HTMLElement>(
-                  `#navbar a[data-nav-flicker][href="${href}"]`,
+                  `#navbar a[href="${href}"]`,
               )
             : null;
     };
