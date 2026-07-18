@@ -55,7 +55,9 @@ const images = docs.map((doc) => ({
             0.1,
             100,
         );
-        camera.position.z = 1;
+        // Start pulled back and dolly in on load (see the intro tween near
+        // startLoop) — the resting distance is 2.
+        camera.position.z = 5;
 
         // ── Motion blur: a directional *radial* (zoom) blur. The scene is drawn
         //    to an off-screen target, then a full-screen quad re-samples it,
@@ -167,17 +169,42 @@ const images = docs.map((doc) => ({
         controls.enablePan = false;
         controls.dampingFactor = 0.05;
         controls.minDistance = 0.5;
-        controls.maxDistance = 7;
+        controls.maxDistance = 10;
 
         // Track real user interaction (drag start/end) rather than every damped
         // "change" frame — otherwise the coast-to-stop keeps resetting the timer
         // and auto-rotation takes far too long to resume.
-        let lastInteractionTime = Date.now();
+        // Seed in the past so the idle-rotation gate (> 1200ms since the last
+        // interaction) is already open at load — the sphere spins from frame one,
+        // rotating through the intro zoom rather than waiting to spin up.
+        let lastInteractionTime = Date.now() - 2000;
         let interacting = false;
+
+        // Wheel-zoom (dolly) should NOT pause auto-rotation — only a rotate drag
+        // should. OrbitControls fires start/end for wheel too, so mark a brief
+        // window around wheel events and skip the interaction gate inside it.
+        // Capture phase on window fires before OrbitControls' own canvas-level
+        // wheel handler, so the flag is set before the start/end it dispatches.
+        let wheeling = false;
+        let wheelClear: ReturnType<typeof setTimeout> | undefined;
+        const onWheel = () => {
+            wheeling = true;
+            clearTimeout(wheelClear);
+            wheelClear = setTimeout(() => {
+                wheeling = false;
+            }, 200);
+        };
+        window.addEventListener("wheel", onWheel, {
+            passive: true,
+            capture: true,
+        });
+
         controls.addEventListener("start", () => {
+            if (wheeling) return;
             interacting = true;
         });
         controls.addEventListener("end", () => {
+            if (wheeling) return;
             interacting = false;
             lastInteractionTime = Date.now();
         });
@@ -185,7 +212,9 @@ const images = docs.map((doc) => ({
         // ── Zoom-to-image state. While zoomed we take over the camera: orbit
         //    controls and auto-rotation are suspended and we look at `lookTarget`
         //    ourselves. `savedCamPos` is where the orbit camera was, to fly back.
+        //    `zoomingOut` marks the flyback so the sphere spins during it.
         let zoomed = false;
+        let zoomingOut = false;
         let zoomedSprite: THREE.Sprite | null = null;
         const lookTarget = new THREE.Vector3(0, 0, 0);
         let savedCamPos = camera.position.clone();
@@ -195,7 +224,7 @@ const images = docs.map((doc) => ({
         scene.add(group);
 
         // ── Fibonacci-sphere layout, parameterised by node count
-        const SPHERE_R = 2.5;
+        const SPHERE_R = 2.55;
         const MIN_R = 1.15;
 
         // Keep the spacing between neighbouring sprites roughly constant no
@@ -334,11 +363,11 @@ const images = docs.map((doc) => ({
         // ↔ category and all ↔ filter alike). Nothing glides: the outgoing set
         // blinks out, the incoming set blinks in, and images that persist across
         // the change blink out, reposition while invisible, then blink back in.
-        const FLASH_OUT_DUR = 0.2;
-        const FLASH_IN_DUR = 0.24;
+        const FLASH_OUT_DUR = 0.1;
+        const FLASH_IN_DUR = 0.2;
         const FLASH_OUT_STEP = 0.022; // stagger between leaving sprites
         const FLASH_IN_STEP = 0.032; // stagger between arriving sprites
-        const FLASH_IN_LEAD = 0.16; // arrive wave waits this long for the clear-out
+        const FLASH_IN_LEAD = 0.2; // arrive wave waits this long for the clear-out
         // Cap on how long a wave takes to sweep its whole set, so the big all↔
         // filter sets stay as snappy as a ~25-image category (small sets, which
         // never hit the cap, keep the exact per-item feel you tuned).
@@ -603,6 +632,24 @@ const images = docs.map((doc) => ({
             applyEdges(edges, animate, true);
         }
 
+        // Intro: instead of flickering each sprite in as its texture lands (a
+        // scattered, network-order wave), hold them hidden while they stream in,
+        // then fire a single relayout(true) — the same top-down cascade the
+        // filter → all switch uses. Stragglers arriving after the cascade has
+        // already run just flash in on their own.
+        let introDone = false;
+        let introLoaded = 0;
+        let introTimer: ReturnType<typeof setTimeout>;
+        const runIntro = () => {
+            if (introDone) return;
+            introDone = true;
+            clearTimeout(introTimer);
+            relayout(true);
+        };
+        // Safety net: if some textures never arrive, cascade with whatever's in
+        // after a short wait so the scene isn't held hostage by one slow image.
+        introTimer = setTimeout(runIntro, 1500);
+
         images.forEach(({ thumb, full, category }, i) => {
             loader.load(thumb, (texture) => {
                 const aspect = texture.image.width / texture.image.height;
@@ -624,26 +671,37 @@ const images = docs.map((doc) => ({
                     thumbTex: texture, // low-res map, restored on zoom-out
                     hiTex: null as THREE.Texture | null, // high-res, loaded on zoom
                 };
-                sprite.visible =
-                    currentFilter === "all" || category === currentFilter;
                 group.add(sprite);
                 sprites.push(sprite);
+
+                if (!introDone) {
+                    // Hold hidden until the whole set is in; runIntro then flashes
+                    // everything on top-down at once.
+                    sprite.visible = false;
+                    sprite.userData.opacity = 0;
+                    if (++introLoaded >= images.length) runIntro();
+                    return;
+                }
+
+                sprite.visible =
+                    currentFilter === "all" || category === currentFilter;
                 // If a category is active while textures still stream in, fold
                 // newly-loaded matches into the packed layout first.
                 if (currentFilter !== "all" && category === currentFilter) {
                     relayout(false);
                 }
-                // Flicker each sprite in as its texture arrives, so the scene
-                // "loads in" with the same blink language as the filters instead
-                // of a canvas fade. Network arrival order gives an organic wave;
-                // the small random delay keeps it from snapping in all at once.
+                // Arrived after the intro cascade — flash it in on its own.
                 if (sprite.visible) {
-                    flashIn(sprite, sprite.position.clone(), Math.random() * 0.3);
+                    flashIn(sprite, sprite.position.clone(), Math.random() * 0.2);
                 }
             });
         });
 
         const onFilter = (e: Event) => {
+            // A filter chosen mid-load ends the intro: cascade whatever's in and
+            // let any stragglers flash in normally afterwards.
+            introDone = true;
+            clearTimeout(introTimer);
             currentFilter = (e as CustomEvent<{ category: string }>).detail
                 .category;
             relayout(true);
@@ -681,7 +739,7 @@ const images = docs.map((doc) => ({
 
             const worldP = new THREE.Vector3();
             sprite.getWorldPosition(worldP);
-            const dir = worldP.clone().normalize();
+            const dir = worldP.clone().normalize(); // centre → sprite, outward
 
             // Distance that fits the whole sprite in view — limited by whichever
             // of width/height is tighter against the frame — plus a little margin.
@@ -691,7 +749,15 @@ const images = docs.map((doc) => ({
             const distW = sprite.scale.x / 2 / Math.tan(hFov / 2);
             const dist = Math.max(distH, distW) * 1.3;
 
-            const camGoal = worldP.clone().sub(dir.multiplyScalar(dist));
+            // Approach the sprite from whichever side the camera is already on:
+            // clicking the outer face zooms in from outside the sphere, the inner
+            // face from inside. Otherwise a click on the outer layer warps the
+            // camera through the image to the inside, which reads as strange.
+            const side =
+                camera.position.clone().sub(worldP).dot(dir) >= 0 ? 1 : -1;
+            const camGoal = worldP
+                .clone()
+                .add(dir.clone().multiplyScalar(side * dist));
 
             gsap.to(camera.position, {
                 x: camGoal.x,
@@ -712,7 +778,7 @@ const images = docs.map((doc) => ({
         // Fly back to the orbit position and hand control back to OrbitControls.
         function zoomOut() {
             if (!zoomed) return;
-            lastInteractionTime = Date.now();
+            zoomingOut = true;
 
             // Restore the light thumbnail and release the high-res texture so
             // GPU memory stays flat no matter how many images get inspected.
@@ -741,7 +807,11 @@ const images = docs.map((doc) => ({
                 ease: "power2.out",
                 onComplete: () => {
                     zoomed = false;
+                    zoomingOut = false;
                     controls.enabled = true;
+                    // Seed in the past so idle rotation carries straight on from
+                    // the spin the flyback already had — no 1200ms dead stop.
+                    lastInteractionTime = Date.now() - 2000;
                 },
             });
         }
@@ -806,12 +876,15 @@ const images = docs.map((doc) => ({
                 if (!running) return;
                 rafId = requestAnimationFrame(tick);
                 if (zoomed) {
-                    // Camera is being flown by GSAP; just keep it aimed.
+                    // Camera is being flown by GSAP; just keep it aimed. Keep the
+                    // sphere spinning through the zoom-out flyback so it's already
+                    // in motion by the time control hands back to the orbit view.
                     camera.lookAt(lookTarget);
+                    if (zoomingOut) group.rotation.y += 0.0012;
                 } else {
                     controls.update();
-                    if (!interacting && Date.now() - lastInteractionTime > 1200)
-                        group.rotation.y += 0.0015;
+                    if (!interacting && Date.now() - lastInteractionTime > 500)
+                        group.rotation.y += 0.0012;
                 }
 
                 // Proximity fade — skip while zoomed so the framed image stays
@@ -878,12 +951,25 @@ const images = docs.map((doc) => ({
         io.observe(canvas);
         startLoop();
 
+        // Intro: dolly the camera in from the pulled-back start to the resting
+        // distance. OrbitControls derives its spherical from the live camera
+        // position each frame, so tweening z is respected; the dolly speed also
+        // feeds the radial blur, giving a subtle zoom streak on the way in.
+        gsap.fromTo(
+            camera.position,
+            { z: 8},
+            { z: 6.25, duration: 2, ease: "power2.out" },
+        );
+
         // ── Return teardown
         return () => {
             stopLoop();
             io.disconnect();
             ro.disconnect();
             window.removeEventListener("filter:change", onFilter);
+            window.removeEventListener("wheel", onWheel, { capture: true });
+            clearTimeout(wheelClear);
+            clearTimeout(introTimer);
             canvas.removeEventListener("pointerdown", onPointerDown);
             canvas.removeEventListener("pointerup", onPointerUp);
             // Kill any in-flight relayout tweens/delayed calls so they can't fire
