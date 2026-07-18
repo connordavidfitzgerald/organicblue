@@ -5,15 +5,21 @@
 // Each tile's image list is a JSON array of URLs on `data-hover-gallery`; a grid
 // that should dim its non-hovered tiles carries `data-hover-dim`.
 //
-// The dim multiplies the non-hovered images into the tiles' #3f3f3f background
-// and drops them to 30% opacity. mix-blend-mode isn't animatable, so it toggles
-// instantly while a CSS transition fades the opacity — its own channel, so it
-// never touches the inline opacity the fade-in leaves on the tiles, and it
-// interrupts cleanly when you move between tiles mid-hover.
+// The dim multiplies the non-hovered images into the tile background and drops
+// them to 30% opacity. mix-blend-mode isn't animatable, so it toggles instantly
+// while a CSS transition fades the opacity — its own channel, so it never
+// touches the inline opacity the fade-in leaves on the tiles, and it interrupts
+// cleanly when you move between tiles mid-hover.
+//
+// The tile background is animated too: on dimming it snaps to a light grey
+// (#ececec) and transitions to the resting dark grey (#3f3f3f) as the opacity
+// fades, so the multiply eases the dimmed image down rather than snapping.
 
 const CYCLE_MS = 1000;
-const DIM_OPACITY = 0.4; // opacity of the non-hovered images while dimmed
-const DIM_DUR = 0.2; // seconds
+const DIM_OPACITY = 0.2; // opacity of the non-hovered images while dimmed
+const DIM_BG_FROM = "#ececec"; // backdrop the dim starts from (light grey)
+const DIM_BG_TO = "#3f3f3f"; // backdrop the dim settles to (dark grey)
+const DIM_DUR = 0.3; // seconds
 const DIM_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"; // easing for the dim/undim
 
 const prefersReducedMotion = () =>
@@ -83,22 +89,52 @@ function wireDimming(grid: HTMLElement) {
             : null;
     };
 
+    const reduced = prefersReducedMotion();
+    const opacityT = reduced ? "" : `opacity ${DIM_DUR}s ${DIM_EASE}`;
+    const bgT = reduced ? "" : `background-color ${DIM_DUR}s ${DIM_EASE}`;
+
+    // Drive the tile backdrop light grey → dark grey. The resting bg differs
+    // from the dim's start colour, so on *entering* the dimmed state we snap to
+    // #ececec (transition off) then ease to #3f3f3f. Guarded on a state flag so
+    // moving between tiles doesn't restart an already-dimmed tile's animation
+    // (which would flick it back to light). `both` carries the opacity channel
+    // too for image-less slots, where the tile is its own blend target.
+    const setBackdrop = (t: HTMLElement, dimmed: boolean, both: boolean) => {
+        if ((t.dataset.hgDimmed === "1") === dimmed) return;
+        t.dataset.hgDimmed = dimmed ? "1" : "0";
+        const on = both ? [opacityT, bgT].filter(Boolean).join(", ") : bgT;
+        if (reduced) {
+            t.style.backgroundColor = dimmed ? DIM_BG_TO : "";
+            return;
+        }
+        if (dimmed) {
+            t.style.transition = "none";
+            t.style.backgroundColor = DIM_BG_FROM;
+            void t.offsetWidth; // commit the snap before arming the transition
+            t.style.transition = on;
+            t.style.backgroundColor = DIM_BG_TO;
+        } else {
+            t.style.transition = on;
+            t.style.backgroundColor = ""; // back to the resting bg class
+        }
+    };
+
     const setFocus = (hovered: HTMLElement | null) => {
         tiles.forEach((t) => {
             const dimmed = hovered !== null && t !== hovered;
             const target = targetOf(t);
             target.style.mixBlendMode = dimmed ? "multiply" : "normal";
             target.style.opacity = dimmed ? String(DIM_OPACITY) : "1";
+            setBackdrop(t, dimmed, target === t);
             navLabelFor(t)?.classList.toggle("nav-inverted", dimmed);
         });
     };
 
-    // The CSS transition fades the opacity; reduced motion swaps instantly.
-    const transition = prefersReducedMotion()
-        ? ""
-        : `opacity ${DIM_DUR}s ${DIM_EASE}`;
     tiles.forEach((tile) => {
-        targetOf(tile).style.transition = transition;
+        // Opacity transition rides on the image; the backdrop transition is set
+        // per state change in setBackdrop (it toggles transition:none for the
+        // snap). Image-less slots blend on the tile, so setBackdrop owns both.
+        if (targetOf(tile) !== tile) targetOf(tile).style.transition = opacityT;
         tile.addEventListener("mouseenter", () => setFocus(tile));
     });
 
