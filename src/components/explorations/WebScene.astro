@@ -170,6 +170,9 @@ const images = docs.map((doc) => ({
         controls.dampingFactor = 0.05;
         controls.minDistance = 0.5;
         controls.maxDistance = 10;
+        // Locked during the intro so a drag/zoom can't fight the load-in dolly;
+        // re-enabled when that tween completes (see the intro tween near startLoop).
+        controls.enabled = false;
 
         // Track real user interaction (drag start/end) rather than every damped
         // "change" frame — otherwise the coast-to-stop keeps resetting the timer
@@ -837,6 +840,9 @@ const images = docs.map((doc) => ({
                 zoomOut();
                 return;
             }
+            // Ignore clicks during the intro (controls stay disabled until the
+            // load-in dolly finishes) so a click can't zoom-lock mid-animation.
+            if (!controls.enabled) return;
             const rect = canvas.getBoundingClientRect();
             pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
             pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -957,8 +963,17 @@ const images = docs.map((doc) => ({
         // feeds the radial blur, giving a subtle zoom streak on the way in.
         gsap.fromTo(
             camera.position,
-            { z: 8},
-            { z: 6.25, duration: 2, ease: "power2.out" },
+            { z: 8 },
+            {
+                z: 6.25,
+                duration: 2,
+                ease: "power2.out",
+                // Hand control back once the load-in dolly finishes so the user
+                // can't drag/zoom against it mid-animation.
+                onComplete: () => {
+                    controls.enabled = true;
+                },
+            },
         );
 
         // ── Return teardown
