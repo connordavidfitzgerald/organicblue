@@ -103,7 +103,7 @@ const shopActive = isActive("/shop");
                     }
                     aria-current={p.slug === currentSlug ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-4 flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 transition-colors",
+                        "cart-dim col-span-4 flex items-center justify-start w-full px-1 py-1 rounded-xs h-6.5 transition-colors",
                         currentSlug === null || p.slug === currentSlug
                             ? "bg-black text-grey"
                             : "bg-grey text-black",
@@ -115,7 +115,7 @@ const shopActive = isActive("/shop");
                     ]}
                 >
                     <span>{p.name}</span>
-                    <span>{p.price}</span>
+
                 </a>
             ))
     }
