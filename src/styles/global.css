@@ -39,6 +39,13 @@
     opacity: 0;
 }
 
+/* An anchor whose href is parked by src/scripts/linkPreview.ts (to suppress the
+   browser's URL bubble over the bottom navbar) is still a link — keep the hand
+   cursor it would otherwise lose along with the href. */
+a[data-hidden-href] {
+    cursor: pointer;
+}
+
 /* Inverted navbar label — toggled by hoverGallery.ts so hovering an index tile
    flips the *other* products'/collections' navbar labels. The rows carry
    `transition-colors`, so the swap animates. */

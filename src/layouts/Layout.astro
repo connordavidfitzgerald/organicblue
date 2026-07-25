@@ -53,6 +53,9 @@ const { title = "Organic Blue", isHome = false } = Astro.props;
         <script>
             import "@mux/mux-player";
             import "../scripts/flicker";
+            // The navbar sits where the browser draws its link URL bubble;
+            // this parks each link's href while the mouse is over it.
+            import "../scripts/linkPreview";
 
             // Homepage intro: while `home-intro` is set (hard load of "/"), the
             // navbar is hidden behind the click-to-enter overlay. Reveal it on
