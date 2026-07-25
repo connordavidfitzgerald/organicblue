@@ -30,6 +30,8 @@ export interface ArchiveCollectionDetail {
 export interface ExplorationImageDoc {
   image: SanityImageSource & { alt?: string }
   category: string
+  // Shop product slug this image features (e.g. "es-rs"), or "none"/null.
+  featuredProduct: string | null
 }
 
 // ── Queries ────────────────────────────────────────────────────────────────
@@ -54,7 +56,8 @@ const ARCHIVE_COLLECTION_QUERY = defineQuery(`
 const EXPLORATION_IMAGES_QUERY = defineQuery(`
   *[_type == "explorationImage" && defined(image.asset)] | order(order asc, _createdAt asc) {
     image,
-    category
+    category,
+    featuredProduct
   }
 `)
 

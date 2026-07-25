@@ -38,6 +38,23 @@ export const explorationImage = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'featuredProduct',
+      title: 'Featured product',
+      description:
+        'If this image features a shop product, a bar linking to it is shown beneath the image when zoomed in. Values match the shop product slugs.',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'None', value: 'none' },
+          { title: 'ES.RS', value: 'es-rs' },
+          { title: 'ES.CAP', value: 'es-cap' },
+          { title: 'ES.ST', value: 'es-st' },
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'none',
+    }),
+    defineField({
       name: 'order',
       title: 'Order',
       type: 'number',

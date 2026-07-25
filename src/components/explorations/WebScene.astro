@@ -1,19 +1,34 @@
 ---
 import { getExplorationImages, urlFor } from "../../lib/sanity";
+import { getProducts } from "../../lib/products";
 
 // Images are managed in Sanity (explorationImage docs). The `category` field
 // (environment | product | prototype | research) becomes the sprite's category.
 const docs = await getExplorationImages();
 
+// Map a featured-product slug (set per image in Sanity) to its display name +
+// shop URL, so a zoomed-in image can show a "Shop" bar for the product it
+// features. Falls back to the slug if the product can't be resolved.
+const products = await getProducts();
+const productBySlug = new Map(products.map((p) => [p.slug, p]));
+
 // A small thumbnail powers each of the ~100 sphere sprites (fast first paint);
 // the high-res `full` is fetched on demand for whichever single sprite the user
 // clicks to zoom-lock, so we never download 100 large images up front. Sanity's
 // CDN serves WebP/AVIF automatically via auto("format").
-const images = docs.map((doc) => ({
-    thumb: urlFor(doc.image).width(640).auto("format").url(),
-    full: urlFor(doc.image).width(2000).auto("format").url(),
-    category: doc.category,
-}));
+const images = docs.map((doc) => {
+    const slug = doc.featuredProduct;
+    const feature =
+        slug && slug !== "none"
+            ? { name: productBySlug.get(slug)?.name ?? slug, url: `/shop/${slug}` }
+            : null;
+    return {
+        thumb: urlFor(doc.image).width(640).auto("format").url(),
+        full: urlFor(doc.image).width(2000).auto("format").url(),
+        category: doc.category,
+        feature,
+    };
+});
 ---
 
 <div
@@ -25,12 +40,52 @@ const images = docs.map((doc) => ({
     data-images={JSON.stringify(images)}
     class="absolute inset-0 w-full h-full"></canvas>
 
+{
+    /* Featured-product bar. Hidden until you zoom into an image that features a
+   shop product; the script then tracks it under the framed image (see
+   updateFeatureBar). pointer-events-none lets clicks fall through to the canvas
+   except on the Shop button. */
+}
+<div
+    id="feature-bar"
+    class="fixed left-0 top-0 z-20 hidden w-0 items-center justify-between gap-1 rounded-xs bg-black px-1 py-1 h-7 pointer-events-none"
+>
+    <span
+        id="feature-name"
+        class="truncate text-base leading-none text-grey"></span>
+    <a
+        id="feature-shop"
+        href="#"
+        class="pointer-events-auto flex h-5 shrink-0 items-center gap-0.5 rounded-xs bg-grey px-1 text-xs leading-none text-black transition-opacity hover:opacity-80"
+    >
+        <span>Shop</span>
+        <svg
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            class="h-2.5 w-2.5"
+        >
+            <path d="M3 7 L7 3 M4.5 3 H7 V5.5"></path>
+        </svg>
+    </a>
+</div>
+
 <script>
     import * as THREE from "three";
     import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     import { gsap } from "gsap";
 
-    type SceneImage = { thumb: string; full: string; category: string };
+    type Feature = { name: string; url: string };
+    type SceneImage = {
+        thumb: string;
+        full: string;
+        category: string;
+        feature: Feature | null;
+    };
 
     let disposeScene: (() => void) | null = null;
 
@@ -167,8 +222,8 @@ const images = docs.map((doc) => ({
         const controls = new OrbitControls(camera, canvas);
         controls.enableDamping = true;
         controls.enablePan = false;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 0.5;
+        controls.dampingFactor = 0.04;
+        controls.minDistance = 0;
         controls.maxDistance = 10;
         // Locked during the intro so a drag/zoom can't fight the load-in dolly;
         // re-enabled when that tween completes (see the intro tween near startLoop).
@@ -190,12 +245,20 @@ const images = docs.map((doc) => ({
         // wheel handler, so the flag is set before the start/end it dispatches.
         let wheeling = false;
         let wheelClear: ReturnType<typeof setTimeout> | undefined;
-        const onWheel = () => {
+        const onWheel = (e: WheelEvent) => {
+            const wasWheeling = wheeling;
             wheeling = true;
             clearTimeout(wheelClear);
             wheelClear = setTimeout(() => {
                 wheeling = false;
             }, 200);
+            // While zoomed in the dolly is locked, so a scroll to zoom out
+            // instead exits the view — same as a click/tap out. Fire only on the
+            // leading edge of a scroll gesture so one gesture is one exit step
+            // (a wheel gesture emits a burst of events); otherwise the burst
+            // would blow straight through the inner retreat into the full exit.
+            if (!wasWheeling && zoomed && !zoomTweening && e.deltaY > 0)
+                zoomOut();
         };
         window.addEventListener("wheel", onWheel, {
             passive: true,
@@ -212,15 +275,47 @@ const images = docs.map((doc) => ({
             lastInteractionTime = Date.now();
         });
 
-        // ── Zoom-to-image state. While zoomed we take over the camera: orbit
-        //    controls and auto-rotation are suspended and we look at `lookTarget`
-        //    ourselves. `savedCamPos` is where the orbit camera was, to fly back.
-        //    `zoomingOut` marks the flyback so the sphere spins during it.
+        // ── Zoom-to-image state. Zooming flies the camera up close to a sprite
+        //    and looks straight at it. Which face was clicked decides the side:
+        //    the outer face (pointing away from the centre) is viewed from
+        //    outside the shell looking in; the inner face (pointing toward the
+        //    centre) is viewed from inside the shell looking out.
+        //    `zoomTweening` is the brief fly (zoom-in / hop / zoom-out) during
+        //    which GSAP owns the camera and controls are off. `zoomingOut` marks
+        //    the flyback so the sphere spins during it.
         let zoomed = false;
         let zoomingOut = false;
+        let zoomTweening = false;
         let zoomedSprite: THREE.Sprite | null = null;
+        // Which face was clicked, kept across hops: +1 = outer (camera outside
+        // the shell, looking inward), -1 = inner (camera inside, looking out).
+        let zoomSide = 1;
+        let zoomInward = true; // == (zoomSide === 1); cached for the pan loop
+        // Once a zoom settles we orbit the camera around the sphere centre
+        // ourselves (OrbitControls can't look outward from inside), so panning
+        // works for both faces. These are the live + target spherical angles of
+        // the camera about the centre, damped toward the targets each frame.
+        let panRadius = camera.position.length();
+        let panAz = 0;
+        let panPol = Math.PI / 2;
+        let panAzTarget = 0;
+        let panPolTarget = Math.PI / 2;
+        let panDragging = false;
+        let lastPan = { x: 0, y: 0 };
+        const _sph = new THREE.Spherical();
         const lookTarget = new THREE.Vector3(0, 0, 0);
-        let savedCamPos = camera.position.clone();
+        let savedCamPos = camera.position.clone(); // overview pose to fly back to
+        // Inner-face exit rotates the aim by slerping the camera quaternion
+        // (see zoomOut) rather than tweening a look point, which would drag the
+        // aim through the camera. While true, the render loop leaves the camera
+        // orientation to that slerp instead of calling lookAt.
+        let aimSlerp = false;
+        const exitQ0 = new THREE.Quaternion();
+        const exitQ1 = new THREE.Quaternion();
+        // Inner-face exit is two-stage: first retreat to near the centre while
+        // still looking outward (this flag marks that resting state), then a
+        // further zoom-out flies fully back to the outside overview.
+        let innerCentered = false;
 
         // ── Web group
         const group = new THREE.Group();
@@ -653,7 +748,7 @@ const images = docs.map((doc) => ({
         // after a short wait so the scene isn't held hostage by one slow image.
         introTimer = setTimeout(runIntro, 1500);
 
-        images.forEach(({ thumb, full, category }, i) => {
+        images.forEach(({ thumb, full, category, feature }, i) => {
             loader.load(thumb, (texture) => {
                 const aspect = texture.image.width / texture.image.height;
                 const sprite = new THREE.Sprite(
@@ -669,6 +764,7 @@ const images = docs.map((doc) => ({
                     index: i,
                     slot: slots[i],
                     category,
+                    feature, // { name, url } if this image features a product
                     baseScale: sprite.scale.clone(),
                     opacity: 1, // base opacity; render loop scales it by proximity
                     thumbTex: texture, // low-res map, restored on zoom-out
@@ -711,38 +807,77 @@ const images = docs.map((doc) => ({
         };
         window.addEventListener("filter:change", onFilter);
 
+        // Swap in the high-res texture for a sprite once it lands — unless the
+        // user has zoomed back out or moved onto another image by then.
+        function loadHiRes(sprite: THREE.Sprite) {
+            if (sprite.userData.hiTex) return;
+            loader.load(sprite.userData.url as string, (tex) => {
+                if (!zoomed || zoomedSprite !== sprite) {
+                    tex.dispose();
+                    return;
+                }
+                const thumbTex = sprite.userData.thumbTex as THREE.Texture;
+                tex.colorSpace = thumbTex.colorSpace;
+                tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                sprite.userData.hiTex = tex;
+                mat(sprite).map = tex;
+                mat(sprite).needsUpdate = true;
+            });
+        }
+
+        // Drop a sprite's high-res texture back to its thumbnail so GPU memory
+        // stays flat no matter how many images get inspected.
+        function releaseHiRes(sprite: THREE.Sprite) {
+            if (!sprite.userData.hiTex) return;
+            mat(sprite).map = sprite.userData.thumbTex as THREE.Texture;
+            mat(sprite).needsUpdate = true;
+            (sprite.userData.hiTex as THREE.Texture).dispose();
+            sprite.userData.hiTex = null;
+        }
+
         // ── Zoom the camera in on a clicked sprite, framing it centre-screen.
-        //    Sprites are billboards on the sphere, so we sit the camera on the
-        //    line from the centre out through the sprite and look straight at it.
+        //    We sit the camera on the line from the centre out through the sprite
+        //    and look straight at the sprite. The clicked face picks the side:
+        //    the outer face puts the camera further out (looking inward), the
+        //    inner face puts it inside the shell (looking outward). Once the fly
+        //    settles, the render loop takes over and orbits the camera around the
+        //    centre so the user can pan across the surface at that zoom level; a
+        //    tap on a neighbouring sprite hops straight to it, keeping the side.
         function zoomToSprite(sprite: THREE.Sprite) {
-            if (zoomed) return;
+            if (zoomTweening) return; // don't interrupt an in-flight fly
+            if (zoomed && zoomedSprite === sprite) return;
+            aimSlerp = false; // zoom-in / hops aim via lookTarget, not the slerp
+            innerCentered = false; // leaving any centred resting state
+
+            const first = !zoomed;
+            if (first) savedCamPos = camera.position.clone();
+
+            // Hopping to a neighbour: let the outgoing image fall back to its
+            // thumbnail before we frame the new one.
+            if (zoomedSprite && zoomedSprite !== sprite) releaseHiRes(zoomedSprite);
+
             zoomed = true;
+            zoomTweening = true;
             zoomedSprite = sprite;
             controls.enabled = false;
             lastInteractionTime = Date.now();
-            savedCamPos = camera.position.clone();
 
-            // Pull the high-res texture for just this sprite and swap it in when
-            // ready. If the user has already zoomed back out (or onto another
-            // image) by the time it lands, discard it.
-            if (!sprite.userData.hiTex) {
-                loader.load(sprite.userData.url as string, (tex) => {
-                    if (!zoomed || zoomedSprite !== sprite) {
-                        tex.dispose();
-                        return;
-                    }
-                    const thumbTex = sprite.userData.thumbTex as THREE.Texture;
-                    tex.colorSpace = thumbTex.colorSpace;
-                    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-                    sprite.userData.hiTex = tex;
-                    mat(sprite).map = tex;
-                    mat(sprite).needsUpdate = true;
-                });
-            }
+            loadHiRes(sprite);
 
             const worldP = new THREE.Vector3();
             sprite.getWorldPosition(worldP);
             const dir = worldP.clone().normalize(); // centre → sprite, outward
+
+            // Begin the aim from wherever the camera is currently looking after
+            // any panning, so a hop doesn't snap back to the previous framing
+            // before flying to the new sprite. This uses the side we were *already*
+            // in, so it must run before we recompute the side below. (The first
+            // zoom comes from the overview, whose lookTarget already sits at the
+            // centre.)
+            if (!first) {
+                if (zoomInward) lookTarget.set(0, 0, 0);
+                else lookTarget.copy(camera.position).multiplyScalar(2);
+            }
 
             // Distance that fits the whole sprite in view — limited by whichever
             // of width/height is tighter against the frame — plus a little margin.
@@ -752,65 +887,131 @@ const images = docs.map((doc) => ({
             const distW = sprite.scale.x / 2 / Math.tan(hFov / 2);
             const dist = Math.max(distH, distW) * 1.3;
 
-            // Approach the sprite from whichever side the camera is already on:
-            // clicking the outer face zooms in from outside the sphere, the inner
-            // face from inside. Otherwise a click on the outer layer warps the
-            // camera through the image to the inside, which reads as strange.
-            const side =
+            // Pick the side from which face is toward the camera *now*: the dot is
+            // positive when the camera sits on the sprite's outward side (outer
+            // face) and negative when it's on the inward side (inner face).
+            // Recomputed on every hop — not just the first zoom — so clicking an
+            // image whose inner face is showing dives inside to it even if we
+            // started outside, and vice-versa. (Panning itself never changes the
+            // side, so it can't punch through the shell mid-pan.)
+            zoomSide =
                 camera.position.clone().sub(worldP).dot(dir) >= 0 ? 1 : -1;
+            zoomInward = zoomSide === 1;
+
             const camGoal = worldP
                 .clone()
-                .add(dir.clone().multiplyScalar(side * dist));
+                .add(dir.clone().multiplyScalar(zoomSide * dist));
 
             gsap.to(camera.position, {
                 x: camGoal.x,
                 y: camGoal.y,
                 z: camGoal.z,
-                duration: 1.1,
+                duration: first ? 1.1 : 0.9,
                 ease: "power2.inOut",
+                onComplete: () => {
+                    // Seed the orbit-pan angles from where the fly landed so the
+                    // hand-off to manual panning is seamless (no jump).
+                    _sph.setFromVector3(camera.position);
+                    panRadius = _sph.radius;
+                    panPol = panPolTarget = _sph.phi;
+                    panAz = panAzTarget = _sph.theta;
+                    zoomTweening = false;
+                },
             });
+            // Aim at the sprite through the fly. For the outer face this is the
+            // same direction as looking at the centre; for the inner face it
+            // looks outward — either way it matches the pan loop's aim on settle.
             gsap.to(lookTarget, {
                 x: worldP.x,
                 y: worldP.y,
                 z: worldP.z,
-                duration: 1.1,
+                duration: first ? 1.1 : 0.9,
                 ease: "power2.inOut",
             });
         }
 
-        // Fly back to the orbit position and hand control back to OrbitControls.
+        const NEAR_CENTER = 0.15; // resting radius for the inner-face retreat
         function zoomOut() {
-            if (!zoomed) return;
-            zoomingOut = true;
+            if (!zoomed || zoomTweening) return;
 
-            // Restore the light thumbnail and release the high-res texture so
-            // GPU memory stays flat no matter how many images get inspected.
-            if (zoomedSprite) {
-                const s = zoomedSprite;
-                if (s.userData.hiTex) {
-                    mat(s).map = s.userData.thumbTex as THREE.Texture;
-                    mat(s).needsUpdate = true;
-                    (s.userData.hiTex as THREE.Texture).dispose();
-                    s.userData.hiTex = null;
+            // Inner face, not yet pulled in: retreat straight along the current
+            // radial to just shy of the centre, keeping the outward look (no
+            // rotation — just shrink the pan radius), and stay in the inside
+            // look-around mode. Drop the focused sprite so a tap now hops to a
+            // new image or, on empty space, triggers the full exit below.
+            if (!zoomInward && !innerCentered) {
+                innerCentered = true;
+                if (zoomedSprite) {
+                    releaseHiRes(zoomedSprite);
+                    zoomedSprite = null;
                 }
+                const r = { v: panRadius };
+                gsap.to(r, {
+                    v: NEAR_CENTER,
+                    duration: 1.2,
+                    ease: "power2.out",
+                    onUpdate: () => {
+                        // Ignore once a hop/full-exit has taken over the camera.
+                        if (zoomed && !zoomTweening && innerCentered)
+                            panRadius = r.v;
+                    },
+                });
+                return;
+            }
+
+            // Otherwise fly fully back out to the overview pose.
+            zoomingOut = true;
+            zoomTweening = true;
+            controls.enabled = false;
+
+            if (zoomedSprite) {
+                releaseHiRes(zoomedSprite);
                 zoomedSprite = null;
             }
-            gsap.to(camera.position, {
-                x: savedCamPos.x,
-                y: savedCamPos.y,
-                z: savedCamPos.z,
+
+            let dest: THREE.Vector3;
+            if (zoomInward) {
+                // Outer view already looks at the centre — return to the saved
+                // overview pose, aim held on the centre by the render loop.
+                aimSlerp = false;
+                lookTarget.set(0, 0, 0);
+                dest = savedCamPos.clone();
+            } else {
+                // Inside looking out — dolly straight back along the current view
+                // axis (through the centre and out the far side) with the aim
+                // frozen. The framed image stays put, and once outside "looking
+                // outward" is exactly "looking at the centre", so it hands off to
+                // OrbitControls with no reposition. Flying toward savedCamPos
+                // instead would warp to an unrelated spot — the disorienting jump.
+                aimSlerp = true;
+                exitQ0.copy(camera.quaternion);
+                exitQ1.copy(camera.quaternion); // frozen: no rotation
+                dest = camera.position
+                    .clone()
+                    .normalize()
+                    .multiplyScalar(-savedCamPos.length());
+            }
+
+            const posTween = gsap.to(camera.position, {
+                x: dest.x,
+                y: dest.y,
+                z: dest.z,
                 duration: 1.2,
                 ease: "power2.out",
-            });
-            gsap.to(lookTarget, {
-                x: 0,
-                y: 0,
-                z: 0,
-                duration: 1.2,
-                ease: "power2.out",
+                onUpdate: () => {
+                    if (aimSlerp)
+                        camera.quaternion.slerpQuaternions(
+                            exitQ0,
+                            exitQ1,
+                            posTween.progress(),
+                        );
+                },
                 onComplete: () => {
+                    aimSlerp = false;
+                    innerCentered = false;
                     zoomed = false;
                     zoomingOut = false;
+                    zoomTweening = false;
                     controls.enabled = true;
                     // Seed in the past so idle rotation carries straight on from
                     // the spin the flyback already had — no 1200ms dead stop.
@@ -826,8 +1027,30 @@ const images = docs.map((doc) => ({
 
         const onPointerDown = (e: PointerEvent) => {
             pointerDown = { x: e.clientX, y: e.clientY };
+            // While zoomed we drive the camera ourselves, so a drag pans the
+            // surface — start tracking it here (OrbitControls is off).
+            if (zoomed && !zoomTweening) {
+                panDragging = true;
+                lastPan = { x: e.clientX, y: e.clientY };
+            }
+        };
+        const onPointerMove = (e: PointerEvent) => {
+            if (!panDragging || zoomTweening) return;
+            const dx = e.clientX - lastPan.x;
+            const dy = e.clientY - lastPan.y;
+            lastPan = { x: e.clientX, y: e.clientY };
+            // Orbit the camera around the sphere centre at the locked radius.
+            // Looking outward (inner face) reverses the grab-and-drag direction.
+            const s = zoomInward ? 1 : -1;
+            const k = 0.005;
+            panAzTarget -= dx * k * s;
+            panPolTarget = Math.min(
+                Math.max(panPolTarget - dy * k * s, 0.12),
+                Math.PI - 0.12,
+            );
         };
         const onPointerUp = (e: PointerEvent) => {
+            panDragging = false;
             if (
                 Math.hypot(
                     e.clientX - pointerDown.x,
@@ -835,9 +1058,25 @@ const images = docs.map((doc) => ({
                 ) > 5
             )
                 return;
-            // While zoomed in, any click flies the camera back out.
+            // While zoomed in, a tap on a neighbouring image travels to it; a
+            // tap on the focused image (or empty space) flies the camera out.
             if (zoomed) {
-                zoomOut();
+                if (zoomTweening) return; // don't interrupt an in-flight fly
+                const rect = canvas.getBoundingClientRect();
+                pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(pointer, camera);
+                const hits = raycaster.intersectObjects(
+                    sprites.filter((s) => s.visible),
+                );
+                // Only the *nearest* image counts — you can't click through the
+                // focused one to a sprite behind it. Tapping the focused image
+                // (or empty space) flies back out; tapping a nearer neighbour
+                // travels to it.
+                const hit = hits[0];
+                if (hit && hit.object !== zoomedSprite)
+                    zoomToSprite(hit.object as THREE.Sprite);
+                else zoomOut();
                 return;
             }
             // Ignore clicks during the intro (controls stay disabled until the
@@ -856,6 +1095,7 @@ const images = docs.map((doc) => ({
         };
 
         canvas.addEventListener("pointerdown", onPointerDown);
+        canvas.addEventListener("pointermove", onPointerMove);
         canvas.addEventListener("pointerup", onPointerUp);
 
         // ── Resize
@@ -870,6 +1110,88 @@ const images = docs.map((doc) => ({
         });
         ro.observe(canvas);
 
+        // ── Featured-product bar. When zoomed into an image that features a shop
+        //    product, track a bar under the framed image: project the sprite's
+        //    bottom edge to screen space each frame and size/position the bar to
+        //    span the image width, sitting a small gap (gap-0.5 → 2px) below it.
+        const featureBar = document.getElementById("feature-bar");
+        const featureName = document.getElementById("feature-name");
+        const featureShop = document.getElementById(
+            "feature-shop",
+        ) as HTMLAnchorElement | null;
+        const FEATURE_GAP = 2; // px below the image (matches gap-0.5)
+        let featureBarSprite: THREE.Sprite | null = null;
+        const _fbCenter = new THREE.Vector3();
+        const _fbRight = new THREE.Vector3();
+        const _fbUp = new THREE.Vector3();
+        const _fbFwd = new THREE.Vector3();
+        const _fbBL = new THREE.Vector3();
+        const _fbBR = new THREE.Vector3();
+
+        function hideFeatureBar() {
+            if (!featureBar) return;
+            featureBar.classList.add("hidden");
+            featureBar.classList.remove("flex");
+            featureBarSprite = null;
+        }
+
+        function updateFeatureBar() {
+            if (!featureBar || !featureName || !featureShop) return;
+            // Only while settled on a focused, featured sprite.
+            const s = !zoomTweening && zoomed ? zoomedSprite : null;
+            const feature = s?.userData.feature as Feature | undefined | null;
+            if (!s || !feature) {
+                if (!featureBar.classList.contains("hidden")) hideFeatureBar();
+                return;
+            }
+            if (s !== featureBarSprite) {
+                featureName.textContent = feature.name;
+                featureShop.href = feature.url;
+                featureBarSprite = s;
+            }
+
+            // Camera basis + inverse must be current (the render below refreshes
+            // them, but we project before that runs).
+            camera.updateMatrixWorld();
+            camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+            _fbRight.setFromMatrixColumn(camera.matrixWorld, 0);
+            _fbUp.setFromMatrixColumn(camera.matrixWorld, 1);
+            s.getWorldPosition(_fbCenter);
+
+            // Hide if the image is behind the camera (e.g. panned past it).
+            camera.getWorldDirection(_fbFwd);
+            if (_fbCenter.clone().sub(camera.position).dot(_fbFwd) <= 0) {
+                if (!featureBar.classList.contains("hidden")) hideFeatureBar();
+                featureBarSprite = s; // keep content; just hidden this frame
+                return;
+            }
+
+            // Billboards face the camera, so their edges align with the camera's
+            // right/up — project the two bottom corners to screen space.
+            const hw = s.scale.x / 2;
+            const hh = s.scale.y / 2;
+            _fbBL.copy(_fbCenter)
+                .addScaledVector(_fbRight, -hw)
+                .addScaledVector(_fbUp, -hh)
+                .project(camera);
+            _fbBR.copy(_fbCenter)
+                .addScaledVector(_fbRight, hw)
+                .addScaledVector(_fbUp, -hh)
+                .project(camera);
+
+            const rect = canvas.getBoundingClientRect();
+            const blx = (_fbBL.x * 0.5 + 0.5) * rect.width + rect.left;
+            const bly = (-_fbBL.y * 0.5 + 0.5) * rect.height + rect.top;
+            const brx = (_fbBR.x * 0.5 + 0.5) * rect.width + rect.left;
+            featureBar.style.left = `${blx}px`;
+            featureBar.style.top = `${bly + FEATURE_GAP}px`;
+            featureBar.style.width = `${Math.max(brx - blx, 0)}px`;
+            if (featureBar.classList.contains("hidden")) {
+                featureBar.classList.remove("hidden");
+                featureBar.classList.add("flex");
+            }
+        }
+
         // ── Render loop — pauseable so we can free the frame budget during transitions
         let rafId = 0;
         let running = false;
@@ -878,20 +1200,51 @@ const images = docs.map((doc) => ({
             if (running) return;
             running = true;
             const wp = new THREE.Vector3();
+            const spinAxis = new THREE.Vector3();
+            const lookOut = new THREE.Vector3(); // reused outward look point (no per-frame alloc)
+            const SPIN = 0.0012; // idle auto-rotation speed (radians/frame)
+            // Spin about the camera's up axis (screen-vertical in world space)
+            // rather than a fixed world axis, so the drift looks the same
+            // horizontal way no matter where the camera has panned to.
+            const autoSpin = () => {
+                spinAxis.set(0, 1, 0).applyQuaternion(camera.quaternion);
+                group.rotateOnWorldAxis(spinAxis, SPIN);
+            };
             function tick() {
                 if (!running) return;
                 rafId = requestAnimationFrame(tick);
-                if (zoomed) {
-                    // Camera is being flown by GSAP; just keep it aimed. Keep the
-                    // sphere spinning through the zoom-out flyback so it's already
-                    // in motion by the time control hands back to the orbit view.
-                    camera.lookAt(lookTarget);
-                    if (zoomingOut) group.rotation.y += 0.0012;
+                if (zoomTweening) {
+                    // Camera is being flown by GSAP (zoom-in, hop between images,
+                    // or zoom-out flyback); just keep it aimed at the sprite. Keep
+                    // the sphere spinning through the flyback so it's already in
+                    // motion by the time control hands back to the orbit view.
+                    // (The inner-face exit drives the orientation itself via a
+                    // quaternion slerp — see zoomOut — so skip lookAt then.)
+                    if (!aimSlerp) camera.lookAt(lookTarget);
+                    if (zoomingOut) autoSpin();
+                } else if (zoomed) {
+                    // Settled zoom: orbit the camera around the centre ourselves
+                    // (damped toward the drag target) so it pans across the
+                    // surface — looking inward for the outer face, outward for the
+                    // inner one. OrbitControls can't do the outward case.
+                    panAz += (panAzTarget - panAz) * 0.15;
+                    panPol += (panPolTarget - panPol) * 0.15;
+                    _sph.set(panRadius, panPol, panAz);
+                    camera.position.setFromSpherical(_sph);
+                    if (zoomInward) camera.lookAt(0, 0, 0);
+                    else camera.lookAt(lookOut.copy(camera.position).multiplyScalar(2));
+                    // Resting inside at the centre: keep the sphere turning,
+                    // paused only while the user is actively dragging to look.
+                    if (innerCentered && !panDragging) autoSpin();
                 } else {
+                    // Overview: OrbitControls drive the camera; auto-rotate when idle.
                     controls.update();
                     if (!interacting && Date.now() - lastInteractionTime > 500)
-                        group.rotation.y += 0.0012;
+                        autoSpin();
                 }
+
+                // Track the featured-product bar under the focused image.
+                updateFeatureBar();
 
                 // Proximity fade — skip while zoomed so the framed image stays
                 // fully opaque even though the camera sits close to it.
@@ -979,6 +1332,7 @@ const images = docs.map((doc) => ({
         // ── Return teardown
         return () => {
             stopLoop();
+            hideFeatureBar();
             io.disconnect();
             ro.disconnect();
             window.removeEventListener("filter:change", onFilter);
@@ -986,6 +1340,7 @@ const images = docs.map((doc) => ({
             clearTimeout(wheelClear);
             clearTimeout(introTimer);
             canvas.removeEventListener("pointerdown", onPointerDown);
+            canvas.removeEventListener("pointermove", onPointerMove);
             canvas.removeEventListener("pointerup", onPointerUp);
             // Kill any in-flight relayout tweens/delayed calls so they can't fire
             // against the disposed scene after navigation.
@@ -1005,6 +1360,10 @@ const images = docs.map((doc) => ({
             passMat.dispose();
             blurQuad.geometry.dispose();
             renderer.dispose();
+            // Free the WebGL context outright. dispose() alone leaves the context
+            // alive; without this, re-initialising (navigating back to this page)
+            // stacks contexts until the browser evicts the oldest — a slow leak.
+            renderer.forceContextLoss();
         };
     }
 

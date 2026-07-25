@@ -23,7 +23,7 @@ const images = collection?.images ?? [];
         style="bottom: var(--nav-h, 3.5rem);"
     >
         <!-- Full-width grid of 4:5 thumbnails -->
-        <div class="archive-thumbs grid grid-cols-12 gap-0.5" data-fade-random>
+        <div class="archive-thumbs grid grid-cols-4 gap-0.5" data-fade-random>
             {
                 images.map((img, i) => (
                     <button

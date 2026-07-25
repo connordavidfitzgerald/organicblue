@@ -171,13 +171,26 @@ const shopActive = isActive("/shop");
                         type="button"
                         aria-label="Toggle cart"
                         class:list={[
-                            "hidden aspect-square h-4.5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
+                            "group hidden h-5.5 px-1.5 -mr-0.5 gap-1.5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
                             shopActive
                                 ? "bg-grey text-black hover:bg-black hover:text-grey"
                                 : "bg-black text-grey hover:bg-grey hover:text-black",
                         ]}
                     >
-                        0
+                        <span id="cart-count-label">Cart</span>
+                        <span
+                            id="cart-count-num"
+                            class:list={[
+                                "aspect-square h-3.5 items-center justify-center text-[0.7rem] rounded-xs leading-none transition-colors",
+                                // Inverse of the badge — and it flips with the
+                                // badge on hover so the contrast is preserved.
+                                shopActive
+                                    ? "bg-black text-grey group-hover:bg-grey group-hover:text-black"
+                                    : "bg-grey text-black group-hover:bg-black group-hover:text-grey",
+                            ]}
+                        >
+                            0
+                        </span>
                     </button>
                 </a>
             ) : (
@@ -513,9 +526,26 @@ const shopActive = isActive("/shop");
         // Empty cart resets everything back to a plain Shop button.
         if (totalQty === 0) cartOpen = false;
 
-        // Count badge on the Shop button. Shows the item count when closed and
-        // an ✕ (close affordance) while the cart is open.
-        count.textContent = cartOpen ? "✕" : String(totalQty);
+        // Count badge on the Shop button. Closed: "Cart" + the item count in its
+        // own box. Open: the boxed number is dropped and the label becomes a
+        // plain ✕ (close affordance) — no box around it.
+        const countNum = document.getElementById("cart-count-num");
+        const countLabel = document.getElementById("cart-count-label");
+        if (countLabel) countLabel.textContent = cartOpen ? "✕" : "Cart";
+        if (countNum) {
+            countNum.textContent = String(totalQty);
+            countNum.classList.toggle("hidden", cartOpen);
+            countNum.classList.toggle("flex", !cartOpen);
+        }
+        // As a lone ✕ the badge should be a square; with "Cart" + the count box
+        // it needs horizontal padding instead.
+        count.classList.toggle("aspect-square", cartOpen);
+        count.classList.toggle("px-1", !cartOpen);
+
+        // While open the Shop button acts as a cart toggle, not a link — drop its
+        // href so the browser doesn't show a /shop hover preview over the button.
+        if (cartOpen) shopNav.removeAttribute("href");
+        else shopNav.setAttribute("href", "/shop");
         count.classList.toggle("hidden", totalQty === 0);
         count.classList.toggle("inline-flex", totalQty > 0);
         shopNav.classList.toggle("justify-between", totalQty > 0);
@@ -564,6 +594,15 @@ const shopActive = isActive("/shop");
             e.preventDefault();
             e.stopPropagation();
             setOpen(!cartOpen);
+        });
+
+        // While the cart is open the Shop button reads "Cart", so it shouldn't
+        // navigate to /shop — clicking it (anywhere but the ✕, which handles its
+        // own click above) just closes the cart.
+        document.getElementById("shop-nav")?.addEventListener("click", (e) => {
+            if (!cartOpen) return;
+            e.preventDefault();
+            setOpen(false);
         });
 
         // Clicking the dimming overlay closes the cart.
