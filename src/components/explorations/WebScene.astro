@@ -95,8 +95,12 @@ const images = docs.map((doc) => {
         // ── Renderer
         const renderer = new THREE.WebGLRenderer({
             canvas,
-            antialias: true,
+            // The final frame is a full-screen quad, so the default framebuffer
+            // has no geometry edges to anti-alias — renderer AA here is wasted
+            // cost. The real AA lives on the off-screen sceneTarget (MSAA below).
+            antialias: false,
             alpha: true,
+            powerPreference: "high-performance",
         });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
@@ -131,7 +135,10 @@ const images = docs.map((doc) => {
         const sceneTarget = new THREE.WebGLRenderTarget(dbSize.x, dbSize.y, {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
-            samples: 4, // keep MSAA anti-aliasing through the off-screen hop
+            // 2× MSAA keeps edges clean through the off-screen hop at roughly half
+            // the resolve cost of 4× — the biggest steady GPU saving, especially
+            // on Firefox where the MSAA resolve is comparatively expensive.
+            samples: 2,
         });
         // The scene is written into this target in linear working space, and we
         // sample it raw, so we re-encode ourselves in the shader (see `grade`).
@@ -1160,7 +1167,12 @@ const images = docs.map((doc) => {
         canvas.addEventListener("pointermove", onPointerMove);
         canvas.addEventListener("pointerup", onPointerUp);
 
-        // ── Resize
+        // ── Resize. The canvas rect is cached here (the explorations stage is a
+        //    fixed full-screen element, so it only changes on resize) and reused
+        //    by the per-frame feature-bar positioning to avoid a layout flush
+        //    every frame — a getBoundingClientRect in the render loop is a
+        //    read/write layout thrash that hits Firefox especially hard.
+        let canvasRect = canvas.getBoundingClientRect();
         const ro = new ResizeObserver(() => {
             const w = canvas.clientWidth;
             const h = canvas.clientHeight;
@@ -1169,6 +1181,7 @@ const images = docs.map((doc) => {
             renderer.setSize(w, h, false);
             const db = renderer.getDrawingBufferSize(new THREE.Vector2());
             sceneTarget.setSize(db.x, db.y);
+            canvasRect = canvas.getBoundingClientRect();
         });
         ro.observe(canvas);
 
@@ -1228,25 +1241,29 @@ const images = docs.map((doc) => {
             return Math.hypot(_fbCenter.x, _fbCenter.y);
         }
 
-        function nearestFeatured(): { sprite: THREE.Sprite; dist: number } | null {
-            let best: THREE.Sprite | null = null;
-            let bd = Infinity;
+        // Nearest featured sprite to the viewport centre, written to these shared
+        // fields (no per-frame object allocation — this runs every frame).
+        let nearestSprite: THREE.Sprite | null = null;
+        let nearestDist = Infinity;
+        function computeNearestFeatured() {
+            nearestSprite = null;
+            nearestDist = Infinity;
             for (const s of featuredSprites) {
                 const d = featureDist(s);
-                if (d < bd) {
-                    bd = d;
-                    best = s;
+                if (d < nearestDist) {
+                    nearestDist = d;
+                    nearestSprite = s;
                 }
             }
-            return best ? { sprite: best, dist: bd } : null;
         }
 
         // Choose the active sprite with hysteresis: an image at the centre
         // (< FADE_IN) takes over; otherwise the current one is kept while it's
         // still within FADE_OUT, so it fades on the way out instead of popping.
         function pickFeature(): THREE.Sprite | null {
-            const near = nearestFeatured();
-            if (near && near.dist < FEATURE_FADE_IN) return near.sprite;
+            computeNearestFeatured();
+            if (nearestSprite && nearestDist < FEATURE_FADE_IN)
+                return nearestSprite;
             if (featureActive && featureDist(featureActive) < FEATURE_FADE_OUT)
                 return featureActive;
             return null;
@@ -1269,7 +1286,7 @@ const images = docs.map((doc) => {
                 .addScaledVector(_fbRight, hw)
                 .addScaledVector(_fbUp, -hh)
                 .project(camera);
-            const rect = canvas.getBoundingClientRect();
+            const rect = canvasRect; // cached; refreshed on resize
             const blx = (_fbBL.x * 0.5 + 0.5) * rect.width + rect.left;
             const bly = (-_fbBL.y * 0.5 + 0.5) * rect.height + rect.top;
             const brx = (_fbBR.x * 0.5 + 0.5) * rect.width + rect.left;
@@ -1373,7 +1390,7 @@ const images = docs.map((doc) => {
             const wp = new THREE.Vector3();
             const spinAxis = new THREE.Vector3();
             const lookOut = new THREE.Vector3(); // reused outward look point (no per-frame alloc)
-            const SPIN = 0.0012; // idle auto-rotation speed (radians/frame)
+            const SPIN = 0.0016; // idle auto-rotation speed (radians/frame)
             // Spin about the camera's up axis (screen-vertical in world space)
             // rather than a fixed world axis, so the drift looks the same
             // horizontal way no matter where the camera has panned to.
@@ -1418,11 +1435,17 @@ const images = docs.map((doc) => {
                 updateFeatureBar();
 
                 // Proximity fade — skip while zoomed so the framed image stays
-                // fully opaque even though the camera sits close to it.
+                // fully opaque even though the camera sits close to it. Also skip
+                // the per-sprite distance work when the camera is far enough that
+                // every sprite is beyond FADE_FAR (the whole overview, unless the
+                // user has wheel-dollied in) — then prox is always 1 and we only
+                // need to copy each sprite's gsap-animated base opacity across.
+                const proxActive =
+                    !zoomed && camera.position.length() < SPHERE_R + FADE_FAR;
                 for (const s of sprites) {
                     if (!s.visible) continue;
                     let prox = 1;
-                    if (!zoomed) {
+                    if (proxActive) {
                         s.getWorldPosition(wp);
                         prox = fadeFor(camera.position.distanceTo(wp));
                     }
