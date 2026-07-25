@@ -103,7 +103,7 @@ const shopActive = isActive("/shop");
                     data-nav-key="filters"
                     data-nav-state="static"
                     data-flicker-step="0.22"
-                    class="cart-dim col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1.5 rounded-xs h-8"
+                    class="cart-dim col-span-8 bg-black text-grey flex items-center justify-between w-full px-2 py-1.5 rounded-xs h-8"
                 >
                     {filters.map((label, i) => (
                         <label class="group flex items-center gap-1 cursor-pointer select-none">
@@ -120,6 +120,15 @@ const shopActive = isActive("/shop");
                         </label>
                     ))}
                 </fieldset>
+                <button
+                    id="exp-reset"
+                    type="button"
+                    data-nav-key="reset"
+                    data-nav-state="static"
+                    class="cart-dim col-span-1 bg-black text-grey flex items-center justify-start w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors hover:bg-grey hover:text-black"
+                >
+                    Reset
+                </button>
             </>
         )
     }
@@ -356,6 +365,25 @@ const shopActive = isActive("/shop");
                     detail: { category: target.value },
                 }),
             );
+        });
+
+        // Reset: restore the "All" filter (only re-applying it if it changed, to
+        // avoid a redundant relayout flash) and fly the sphere back to its
+        // initial overview.
+        const reset = document.getElementById("exp-reset");
+        reset?.addEventListener("click", () => {
+            const all = fieldset.querySelector<HTMLInputElement>(
+                'input[value="all"]',
+            );
+            if (all && !all.checked) {
+                all.checked = true;
+                window.dispatchEvent(
+                    new CustomEvent("filter:change", {
+                        detail: { category: "all" },
+                    }),
+                );
+            }
+            window.dispatchEvent(new CustomEvent("scene:reset"));
         });
     });
 </script>

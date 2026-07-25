@@ -1023,6 +1023,65 @@ const images = docs.map((doc) => {
             });
         }
 
+        // ── Reset: fly the camera home to the initial overview pose (straight-on,
+        //    resting distance) from wherever it is — panned overview, zoomed, or
+        //    inside — and hand back to OrbitControls. The aim is slerped so it
+        //    never snaps, even when reversing from an inner outward-looking view.
+        const INITIAL_Z = 6.25; // resting distance after the intro dolly
+        function resetView() {
+            gsap.killTweensOf(camera.position);
+            gsap.killTweensOf(lookTarget);
+            if (zoomedSprite) {
+                releaseHiRes(zoomedSprite);
+                zoomedSprite = null;
+            }
+
+            const dest = new THREE.Vector3(0, 0, INITIAL_Z);
+            // Capture the end orientation by momentarily posing the camera home.
+            exitQ0.copy(camera.quaternion);
+            const keep = camera.position.clone();
+            camera.position.copy(dest);
+            camera.lookAt(0, 0, 0);
+            exitQ1.copy(camera.quaternion);
+            camera.position.copy(keep);
+            camera.quaternion.copy(exitQ0);
+
+            zoomed = true; // suppress overview auto-rotate/controls during the fly
+            zoomingOut = true; // keep the sphere spinning through the flyback
+            zoomTweening = true;
+            aimSlerp = true;
+            innerCentered = false;
+            controls.enabled = false;
+            controls.minDistance = 0; // restore overview dolly range
+            controls.maxDistance = 10;
+            lookTarget.set(0, 0, 0);
+
+            const posTween = gsap.to(camera.position, {
+                x: dest.x,
+                y: dest.y,
+                z: dest.z,
+                duration: 1.2,
+                ease: "power2.inOut",
+                onUpdate: () => {
+                    camera.quaternion.slerpQuaternions(
+                        exitQ0,
+                        exitQ1,
+                        posTween.progress(),
+                    );
+                },
+                onComplete: () => {
+                    aimSlerp = false;
+                    zoomed = false;
+                    zoomingOut = false;
+                    zoomTweening = false;
+                    controls.enabled = true;
+                    lastInteractionTime = Date.now() - 2000;
+                },
+            });
+        }
+        const onReset = () => resetView();
+        window.addEventListener("scene:reset", onReset);
+
         // ── Click detection
         const raycaster = new THREE.Raycaster();
         const pointer = new THREE.Vector2();
@@ -1448,6 +1507,7 @@ const images = docs.map((doc) => {
             io.disconnect();
             ro.disconnect();
             window.removeEventListener("filter:change", onFilter);
+            window.removeEventListener("scene:reset", onReset);
             window.removeEventListener("wheel", onWheel, { capture: true });
             clearTimeout(wheelClear);
             clearTimeout(introTimer);
