@@ -61,7 +61,7 @@ const localGallery =
         <div class="flex w-full h-full flex-col gap-0.5">
             <div
 
-                class="flex w-full px-1 py-1 rounded-xs grow flex-col justify-center items-center bg-black"
+                class="flex w-full px-1.5 py-1.5 rounded-xs grow flex-col justify-center items-center bg-black"
             >
                 <div class="text-center">
                     <p>{product.detailTitle}</p>
@@ -83,7 +83,7 @@ const localGallery =
                 data-name={product.name}
                 data-price={product.price}
                 data-image={cartImage}
-                class="flex w-full px-1 py-1 rounded-xs h-6 flex-row justify-between bg-black text-grey transition-colors hover:bg-grey hover:text-black"
+                class="flex w-full px-1.5 py-1.5 rounded-xs h-7.5 flex-row justify-between bg-black text-grey transition-colors hover:bg-grey hover:text-black"
             >
                 <span>Add to cart</span>
                 <span>{product.price}</span>
@@ -153,6 +153,7 @@ const localGallery =
 <script>
     import "../../scripts/textReveal";
     import "../../scripts/fadeIn";
+    import "../../scripts/shopZoom";
 
     function sizeStage() {
         const nav = document.getElementById("navbar");

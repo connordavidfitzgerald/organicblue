@@ -54,12 +54,46 @@ const shopActive = isActive("/shop");
     {
         showFilters && (
             <>
+                {/* DISABLED navbar variant of the featured-product bar. Kept
+                    behind `false` so it's easy to restore. The active variant now
+                    lives in WebScene, tracking under the framed image. When
+                    re-enabling, also restore the `feature:change` dispatch in
+                    WebScene (syncFeature) and the listener in the script below. */}
+                {false && (
+                    <div
+                        id="feature-bar"
+                        data-nav-key="feature"
+                        data-nav-state="static"
+                        class="cart-dim col-span-12 hidden bg-black text-grey text-base items-center justify-between w-full px-1.5 py-1.5 rounded-xs h-10"
+                    >
+                        <span id="feature-name" class="truncate" />
+                        <a
+                            id="feature-shop"
+                            href="#"
+                            class="flex h-full shrink-0 items-center gap-0.5 rounded-xs bg-grey px-5 text-xs leading-none text-black transition-colors hover:bg-black hover:text-grey"
+                        >
+                            <span>Shop</span>
+                            <svg
+                                viewBox="0 0 10 10"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                aria-hidden="true"
+                                class="h-2.5 w-2.5"
+                            >
+                                <path d="M3 7 L7 3 M4.5 3 H7 V5.5" />
+                            </svg>
+                        </a>
+                    </div>
+                )}
                 <div
 
                     data-nav-key="filters-label"
                     data-nav-state="static"
 
-                    class="cart-dim col-span-3 bg-black text-grey flex items-center w-full px-1 py-1 rounded-xs h-6.5"
+                    class="cart-dim col-span-3 bg-black text-grey flex items-center w-full px-1.5 py-1.5 rounded-xs h-8"
                 >
                     Filters
                 </div>
@@ -69,7 +103,7 @@ const shopActive = isActive("/shop");
                     data-nav-key="filters"
                     data-nav-state="static"
                     data-flicker-step="0.22"
-                    class="cart-dim col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1 rounded-xs h-6.5"
+                    class="cart-dim col-span-9 bg-black text-grey flex items-center justify-between w-full px-2 py-1.5 rounded-xs h-8"
                 >
                     {filters.map((label, i) => (
                         <label class="group flex items-center gap-1 cursor-pointer select-none">
@@ -103,7 +137,7 @@ const shopActive = isActive("/shop");
                     }
                     aria-current={p.slug === currentSlug ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-4 flex items-center justify-start w-full px-1 py-1 rounded-xs h-6.5 transition-colors",
+                        "cart-dim col-span-4 flex items-center justify-start w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors",
                         currentSlug === null || p.slug === currentSlug
                             ? "bg-black text-grey"
                             : "bg-grey text-black",
@@ -135,7 +169,7 @@ const shopActive = isActive("/shop");
                         c.slug === currentArchiveSlug ? "page" : undefined
                     }
                     class:list={[
-                        "cart-dim col-span-4 flex items-center w-full px-1 py-1 rounded-xs h-6.5 transition-colors",
+                        "cart-dim col-span-4 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors",
                         currentArchiveSlug === null ||
                         c.slug === currentArchiveSlug
                             ? "bg-black text-grey"
@@ -161,7 +195,7 @@ const shopActive = isActive("/shop");
                     data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "col-start-1 col-span-3 flex items-center w-full px-1 py-1 rounded-xs h-6.5 transition-colors hover:bg-black hover:text-grey",
+                        "col-start-1 col-span-3 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -171,7 +205,7 @@ const shopActive = isActive("/shop");
                         type="button"
                         aria-label="Toggle cart"
                         class:list={[
-                            "group hidden h-5.5 px-1.5 -mr-0.5 gap-1.5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
+                            "group hidden h-7 px-1.5 -mr-1 gap-1.5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
                             shopActive
                                 ? "bg-grey text-black hover:bg-black hover:text-grey"
                                 : "bg-black text-grey hover:bg-grey hover:text-black",
@@ -181,7 +215,7 @@ const shopActive = isActive("/shop");
                         <span
                             id="cart-count-num"
                             class:list={[
-                                "aspect-square h-3.5 items-center justify-center text-[0.7rem] rounded-xs leading-none transition-colors",
+                                "aspect-square h-4 items-center justify-center text-[0.7rem] rounded-xs leading-none transition-colors",
                                 // Inverse of the badge — and it flips with the
                                 // badge on hover so the contrast is preserved.
                                 shopActive
@@ -200,7 +234,7 @@ const shopActive = isActive("/shop");
                     data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-3 flex w-full px-1 py-1 rounded-xs h-6.5 transition-colors hover:bg-black hover:text-grey",
+                        "cart-dim col-span-3 flex w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -216,7 +250,7 @@ const shopActive = isActive("/shop");
         data-nav-state={isHome ? "on" : "off"}
         aria-label="organicblue — home"
         class:list={[
-            "cart-dim col-span-12 flex items-center w-full px-1 py-1 rounded-xs h-6.5 transition-colors  hover:bg-black hover:text-grey",
+            "cart-dim col-span-12 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors  hover:bg-black hover:text-grey",
             isHome ? "bg-black text-grey" : "bg-grey text-black",
         ]}
     >
@@ -430,7 +464,7 @@ const shopActive = isActive("/shop");
     const buildCard = (item: CartItem) => {
         const card = document.createElement("div");
         card.className =
-            "cart-item w-full grid grid-cols-3 gap-2 items-start p-2 rounded-xs bg-black text-grey";
+            "cart-item w-full grid grid-cols-3 gap-1.5 items-start p-1.5 rounded-xs bg-black text-grey";
 
         const imgCol = document.createElement("div");
         if (item.image) {
@@ -475,7 +509,7 @@ const shopActive = isActive("/shop");
         btn.id = "cart-checkout";
         btn.type = "button";
         btn.className =
-            "flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 bg-black text-grey transition-colors hover:bg-grey hover:text-black";
+            "flex items-center justify-between w-full px-1.5 py-1.5 rounded-xs h-8 bg-black text-grey transition-colors hover:bg-grey hover:text-black";
         const label = document.createElement("span");
         label.textContent = "Checkout";
         const totalEl = document.createElement("span");

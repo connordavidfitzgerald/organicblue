@@ -48,22 +48,21 @@ const images = docs.map((doc) => {
 }
 <div
     id="feature-bar"
-    class="fixed left-0 top-0 z-20 hidden w-0 items-center justify-between gap-1 rounded-xs bg-black px-1 py-1 h-7 pointer-events-none"
+    class="fixed left-0 top-0 z-20 hidden w-0 items-center justify-between gap-1 rounded-xs bg-black px-1.5 py-1.5 h-8 pointer-events-none"
 >
-    <span
-        id="feature-name"
-        class="truncate text-base leading-none text-grey"></span>
+    <span id="feature-name" class="truncate text-sm leading-none text-grey"
+    ></span>
     <a
         id="feature-shop"
         href="#"
-        class="pointer-events-auto flex h-5 shrink-0 items-center gap-0.5 rounded-xs bg-grey px-1 text-xs leading-none text-black transition-opacity hover:opacity-80"
+        class="pointer-events-auto flex h-7 -mr-1 shrink-0 items-center gap-0.5 rounded-xs bg-grey px-1.5 text-xs leading-none text-black transition-opacity hover:opacity-80"
     >
         <span>Shop</span>
         <svg
             viewBox="0 0 10 10"
             fill="none"
             stroke="currentColor"
-            stroke-width="1.5"
+            stroke-width="1"
             stroke-linecap="round"
             stroke-linejoin="round"
             aria-hidden="true"
@@ -430,6 +429,9 @@ const images = docs.map((doc) => {
         // ── Sprites — one per image, auto-billboarded
         const SPRITE_H = 0.55;
         const sprites: THREE.Sprite[] = [];
+        // Subset that features a shop product — the feature bar tracks whichever
+        // of these is nearest the viewport centre while zoomed (see updateFeatureBar).
+        const featuredSprites: THREE.Sprite[] = [];
         const loader = new THREE.TextureLoader();
 
         // ── Proximity fade — as the camera pushes through the sphere shell a
@@ -772,6 +774,7 @@ const images = docs.map((doc) => {
                 };
                 group.add(sprite);
                 sprites.push(sprite);
+                if (feature) featuredSprites.push(sprite);
 
                 if (!introDone) {
                     // Hold hidden until the whole set is in; runIntro then flashes
@@ -1042,7 +1045,7 @@ const images = docs.map((doc) => {
             // Orbit the camera around the sphere centre at the locked radius.
             // Looking outward (inner face) reverses the grab-and-drag direction.
             const s = zoomInward ? 1 : -1;
-            const k = 0.005;
+            const k = 0.003;
             panAzTarget -= dx * k * s;
             panPolTarget = Math.min(
                 Math.max(panPolTarget - dy * k * s, 0.12),
@@ -1110,64 +1113,93 @@ const images = docs.map((doc) => {
         });
         ro.observe(canvas);
 
-        // ── Featured-product bar. When zoomed into an image that features a shop
-        //    product, track a bar under the framed image: project the sprite's
-        //    bottom edge to screen space each frame and size/position the bar to
-        //    span the image width, sitting a small gap (gap-0.5 → 2px) below it.
+        // ── Featured-product bar. While zoomed, the bar tracks whichever featured
+        //    image is nearest the viewport centre — not just the one you clicked.
+        //    It flickers in (shared site language) as an image reaches the centre
+        //    area, tracks under it, and fades out as it drifts toward the edges;
+        //    pan a different featured image to the centre and its bar takes over
+        //    and flickers in. Distances are screen-space (NDC) from centre.
         const featureBar = document.getElementById("feature-bar");
         const featureName = document.getElementById("feature-name");
         const featureShop = document.getElementById(
             "feature-shop",
         ) as HTMLAnchorElement | null;
         const FEATURE_GAP = 2; // px below the image (matches gap-0.5)
-        let featureBarSprite: THREE.Sprite | null = null;
+        // Centre-zone thresholds (NDC radius). Inside FADE_IN a featured image is
+        // "at centre" → its bar is fully shown / flickers in; past FADE_OUT it's
+        // dropped. Between them the bar fades with distance. Tunable.
+        const FEATURE_FADE_IN = 0.5;
+        const FEATURE_FADE_OUT = 1.0;
+        const FEATURE_FLICK = [0, 1, 0.4, 1]; // shared flicker-in keyframes
+        const reduceMotion = () =>
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        let featureActive: THREE.Sprite | null = null;
+        let featureFlickering = false;
         const _fbCenter = new THREE.Vector3();
         const _fbRight = new THREE.Vector3();
         const _fbUp = new THREE.Vector3();
         const _fbFwd = new THREE.Vector3();
+        const _fbVec = new THREE.Vector3();
         const _fbBL = new THREE.Vector3();
         const _fbBR = new THREE.Vector3();
 
-        function hideFeatureBar() {
-            if (!featureBar) return;
-            featureBar.classList.add("hidden");
-            featureBar.classList.remove("flex");
-            featureBarSprite = null;
+        // Screen-space distance (NDC) of a featured sprite from the viewport
+        // centre, or Infinity if it doesn't currently qualify (not settled-zoomed,
+        // hidden, no feature, or behind the camera).
+        function featureDist(s: THREE.Sprite): number {
+            // Only while actually zoomed into an image — not the inner-centred
+            // look-around state (zoomed is still true there, but zoomedSprite is
+            // cleared), where bars for surrounding inner images shouldn't show.
+            if (!zoomed || zoomTweening || innerCentered) return Infinity;
+            if (!s.visible || !s.userData.feature) return Infinity;
+            camera.getWorldDirection(_fbFwd);
+            s.getWorldPosition(_fbCenter);
+            _fbVec.copy(_fbCenter).sub(camera.position);
+            if (_fbVec.dot(_fbFwd) <= 0) return Infinity; // behind camera
+            // Only images on the shell face we're currently viewing qualify: the
+            // sign of (camera → sprite) against the sprite's outward normal is +1
+            // for its outer face, -1 for its inner face (same test zoomToSprite
+            // uses). Skipping the mismatched side means that from outside the
+            // sphere the inner-facing images across it never show a bar.
+            _fbBL.copy(_fbCenter).normalize(); // outward normal at the sprite
+            const side = -_fbVec.dot(_fbBL) >= 0 ? 1 : -1;
+            if (side !== zoomSide) return Infinity;
+            _fbCenter.project(camera);
+            return Math.hypot(_fbCenter.x, _fbCenter.y);
         }
 
-        function updateFeatureBar() {
-            if (!featureBar || !featureName || !featureShop) return;
-            // Only while settled on a focused, featured sprite.
-            const s = !zoomTweening && zoomed ? zoomedSprite : null;
-            const feature = s?.userData.feature as Feature | undefined | null;
-            if (!s || !feature) {
-                if (!featureBar.classList.contains("hidden")) hideFeatureBar();
-                return;
+        function nearestFeatured(): { sprite: THREE.Sprite; dist: number } | null {
+            let best: THREE.Sprite | null = null;
+            let bd = Infinity;
+            for (const s of featuredSprites) {
+                const d = featureDist(s);
+                if (d < bd) {
+                    bd = d;
+                    best = s;
+                }
             }
-            if (s !== featureBarSprite) {
-                featureName.textContent = feature.name;
-                featureShop.href = feature.url;
-                featureBarSprite = s;
-            }
+            return best ? { sprite: best, dist: bd } : null;
+        }
 
-            // Camera basis + inverse must be current (the render below refreshes
-            // them, but we project before that runs).
+        // Choose the active sprite with hysteresis: an image at the centre
+        // (< FADE_IN) takes over; otherwise the current one is kept while it's
+        // still within FADE_OUT, so it fades on the way out instead of popping.
+        function pickFeature(): THREE.Sprite | null {
+            const near = nearestFeatured();
+            if (near && near.dist < FEATURE_FADE_IN) return near.sprite;
+            if (featureActive && featureDist(featureActive) < FEATURE_FADE_OUT)
+                return featureActive;
+            return null;
+        }
+
+        // Position the bar spanning the sprite's bottom edge, a small gap below.
+        function positionFeatureBar(s: THREE.Sprite) {
+            if (!featureBar) return;
             camera.updateMatrixWorld();
-            camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
             _fbRight.setFromMatrixColumn(camera.matrixWorld, 0);
             _fbUp.setFromMatrixColumn(camera.matrixWorld, 1);
             s.getWorldPosition(_fbCenter);
-
-            // Hide if the image is behind the camera (e.g. panned past it).
-            camera.getWorldDirection(_fbFwd);
-            if (_fbCenter.clone().sub(camera.position).dot(_fbFwd) <= 0) {
-                if (!featureBar.classList.contains("hidden")) hideFeatureBar();
-                featureBarSprite = s; // keep content; just hidden this frame
-                return;
-            }
-
-            // Billboards face the camera, so their edges align with the camera's
-            // right/up — project the two bottom corners to screen space.
             const hw = s.scale.x / 2;
             const hh = s.scale.y / 2;
             _fbBL.copy(_fbCenter)
@@ -1178,7 +1210,6 @@ const images = docs.map((doc) => {
                 .addScaledVector(_fbRight, hw)
                 .addScaledVector(_fbUp, -hh)
                 .project(camera);
-
             const rect = canvas.getBoundingClientRect();
             const blx = (_fbBL.x * 0.5 + 0.5) * rect.width + rect.left;
             const bly = (-_fbBL.y * 0.5 + 0.5) * rect.height + rect.top;
@@ -1186,9 +1217,90 @@ const images = docs.map((doc) => {
             featureBar.style.left = `${blx}px`;
             featureBar.style.top = `${bly + FEATURE_GAP}px`;
             featureBar.style.width = `${Math.max(brx - blx, 0)}px`;
-            if (featureBar.classList.contains("hidden")) {
-                featureBar.classList.remove("hidden");
-                featureBar.classList.add("flex");
+        }
+
+        function showFeatureBar() {
+            if (!featureBar) return;
+            featureBar.classList.remove("hidden");
+            featureBar.classList.add("flex");
+        }
+
+        function hideFeatureBar() {
+            if (!featureBar) return;
+            gsap.killTweensOf(featureBar);
+            featureBar.classList.add("hidden");
+            featureBar.classList.remove("flex");
+            featureActive = null;
+            featureFlickering = false;
+        }
+
+        // Blink the bar in with the shared flicker language. While it plays it
+        // owns the bar's opacity; the per-frame edge-fade resumes on completion.
+        function flickerFeatureBarIn() {
+            if (!featureBar) return;
+            gsap.killTweensOf(featureBar);
+            if (reduceMotion()) {
+                featureFlickering = false;
+                featureBar.style.opacity = "1";
+                return;
+            }
+            featureFlickering = true;
+            featureBar.style.opacity = "0";
+            gsap.to(featureBar, {
+                keyframes: { opacity: FEATURE_FLICK, easeEach: "power1.inOut" },
+                duration: 0.22,
+                onComplete: () => {
+                    featureFlickering = false;
+                },
+            });
+        }
+
+        // Fade the bar out (used when no featured image is near the centre, e.g.
+        // panned away or on zoom-out) then tear it down.
+        function fadeFeatureBarOut() {
+            if (!featureBar) return;
+            gsap.killTweensOf(featureBar);
+            gsap.to(featureBar, {
+                opacity: 0,
+                duration: 0.2,
+                ease: "power2.out",
+                onComplete: () => hideFeatureBar(),
+            });
+        }
+
+        function updateFeatureBar() {
+            if (!featureBar || !featureName || !featureShop) return;
+            const next = pickFeature();
+
+            if (next !== featureActive) {
+                if (next) {
+                    const feature = next.userData.feature as Feature;
+                    featureName.textContent = feature.name;
+                    featureShop.href = feature.url;
+                    featureActive = next;
+                    showFeatureBar();
+                    positionFeatureBar(next);
+                    flickerFeatureBarIn();
+                } else {
+                    featureActive = null;
+                    fadeFeatureBarOut();
+                }
+            }
+
+            if (featureActive) {
+                positionFeatureBar(featureActive);
+                // Edge-fade with distance from centre (skipped while the flicker
+                // tween owns the opacity).
+                if (!featureFlickering) {
+                    const d = featureDist(featureActive);
+                    const t = THREE.MathUtils.clamp(
+                        (FEATURE_FADE_OUT - d) /
+                            (FEATURE_FADE_OUT - FEATURE_FADE_IN),
+                        0,
+                        1,
+                    );
+                    featureBar.style.opacity = String(t * t * (3 - 2 * t));
+                }
             }
         }
 

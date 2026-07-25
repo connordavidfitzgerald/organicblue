@@ -21,7 +21,7 @@ const { product, columns } = Astro.props;
    pre-hidden tile so the rows never flash before their cascade. */}
 <div
     data-text-reveal
-    class="grid grid-cols-3 w-full px-1 py-1 rounded-xs h-fit bg-black"
+    class="grid grid-cols-3 w-full px-1.5 py-1.5 rounded-xs h-fit bg-black"
 >
     {
         columns.map((col) => (
@@ -30,8 +30,8 @@ const { product, columns } = Astro.props;
                     const values = product.specs[item.key];
                     return values && values.length > 0 ? (
                         <div class="flex flex-col gap-0">
-                            <p class="opacity-50">{item.label}</p>
-                            <ul>
+                            <p>{item.label}</p>
+                            <ul class="opacity-65">
                                 {values.map((v) => (
                                     <li>{v}</li>
                                 ))}

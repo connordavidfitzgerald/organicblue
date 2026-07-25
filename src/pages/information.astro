@@ -89,12 +89,12 @@ function parseBody(body: string): Block[] {
         <!-- About -->
         <div class="col-span-3 flex flex-col gap-0.5 h-full">
             <div
-                class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black"
+                class="flex w-full px-1.5 py-1.5 rounded-xs h-8 bg-black"
             >
                 About
             </div>
             <div
-                class="flex flex-col px-1 py-1 rounded-xs bg-black"
+                class="flex flex-col px-1.5 py-1.5 rounded-xs bg-black"
             >
                 Organic Blue is a Montreal-based design studio working across
                 technical garments, objects and spatial experiences. Our
@@ -107,13 +107,13 @@ function parseBody(body: string): Block[] {
                     <div class="accordion flex flex-col gap-0.5">
                         <button
                             type="button"
-                            class="accordion-header flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 bg-black text-grey transition-colors hover:bg-grey hover:text-black"
+                            class="accordion-header flex items-center justify-between w-full px-1.5 py-1.5 rounded-xs h-8 bg-black text-grey transition-colors hover:bg-grey hover:text-black"
                             aria-expanded="false"
                         >
                             <span>{item.term}</span>
                             <span class="accordion-icon select-none">+</span>
                         </button>
-                        <div class="accordion-body hidden space-y-2 px-1 py-1 rounded-xs bg-grey text-black">
+                        <div class="accordion-body hidden space-y-2 px-1.5 py-1.5 rounded-xs bg-grey text-black">
                             {parseBody(item.body).map((block) =>
                                 block.type === "ul" ? (
                                     <ul class="list-disc pl-4">
@@ -137,12 +137,12 @@ function parseBody(body: string): Block[] {
         <!-- FAQ -->
         <div class="col-span-3 flex flex-col gap-0.5 h-full">
             <div
-                class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black"
+                class="flex w-full px-1.5 py-1.5 rounded-xs h-8 bg-black"
             >
                 FAQ
             </div>
             <div
-                class="flex flex-col px-1 py-1 rounded-xs bg-black"
+                class="flex flex-col px-1.5 py-1.5 rounded-xs bg-black"
             >
                 {faqIntro}
             </div>
@@ -151,13 +151,13 @@ function parseBody(body: string): Block[] {
                     <div class="accordion flex flex-col gap-0.5">
                         <button
                             type="button"
-                            class="accordion-header flex items-center justify-between w-full px-1 py-1 rounded-xs h-6.5 bg-black text-grey transition-colors hover:bg-grey hover:text-black"
+                            class="accordion-header flex items-center justify-between w-full px-1.5 py-1.5 rounded-xs h-8 bg-black text-grey transition-colors hover:bg-grey hover:text-black"
                             aria-expanded="false"
                         >
                             <span>{item.term}</span>
                             <span class="accordion-icon select-none">+</span>
                         </button>
-                        <div class="accordion-body hidden space-y-2 px-1 py-1 rounded-xs bg-grey text-black">
+                        <div class="accordion-body hidden space-y-2 px-1.5 py-1.5 rounded-xs bg-grey text-black">
                             {parseBody(item.body).map((block) =>
                                 block.type === "ul" ? (
                                     <ul class="list-disc pl-4">
@@ -179,12 +179,12 @@ function parseBody(body: string): Block[] {
         <!-- Contact -->
         <div class="col-span-3 flex flex-col gap-0.5 h-full">
             <div
-                class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black"
+                class="flex w-full px-1.5 py-1.5 rounded-xs h-8 bg-black"
             >
                 Contact
             </div>
             <div
-                class="flex flex-col px-1 py-1 grow rounded-xs bg-black"
+                class="flex flex-col px-1.5 py-1.5 grow rounded-xs bg-black"
             >
                 info@organicblue000.com
             </div>
@@ -193,12 +193,12 @@ function parseBody(body: string): Block[] {
         <!-- Services -->
         <div class="col-span-3 flex flex-col gap-0.5 h-full">
             <div
-                class="flex w-full px-1 py-1 rounded-xs h-6.5 bg-black"
+                class="flex w-full px-1.5 py-1.5 rounded-xs h-8 bg-black"
             >
                 Services
             </div>
             <ul
-                class="flex flex-col px-1 py-1 grow rounded-xs bg-black"
+                class="flex flex-col px-1.5 py-1.5 grow rounded-xs bg-black"
             >
                 <li>Research.</li>
                 <li>Prototyping.</li>
