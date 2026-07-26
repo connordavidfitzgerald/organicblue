@@ -16,7 +16,7 @@
 // fades, so the multiply eases the dimmed image down rather than snapping.
 
 const CYCLE_MS = 1000;
-const DIM_OPACITY = 0.2; // opacity of the non-hovered images while dimmed
+const DIM_OPACITY = 0.6; // opacity of the non-hovered images while dimmed
 const DIM_BG_FROM = "#ececec"; // backdrop the dim starts from (light grey)
 const DIM_BG_TO = "#3f3f3f"; // backdrop the dim settles to (dark grey)
 const DIM_DUR = 0.3; // seconds
