@@ -85,6 +85,13 @@ a[data-hidden-href] {
 html.home-intro #navbar {
     transform: translateY(100%);
 }
+/* The mobile cart floats at the top-left, outside the navbar, so the navbar's
+   tuck leaves it stranded over the click-to-enter screen (which is transparent
+   — lowering its z-index alone wouldn't hide it). Tuck it up off the top edge
+   on the same timing instead; it slides in with the navbar on first click. */
+html.home-intro #cart-mobile {
+    transform: translateY(calc(-100% - 0.125rem));
+}
 #home-video {
     transition:
         filter 0.8s ease,

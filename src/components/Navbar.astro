@@ -103,7 +103,7 @@ const cartFullWidth = pathname === "/information";
                     aria-controls="exp-filters"
                     data-nav-key="filters-label"
                     data-nav-state="static"
-                    class="cart-dim col-span-3 max-md:col-span-12 bg-black text-grey flex items-center max-md:justify-between w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem]"
+                    class="cart-dim col-span-3 max-md:col-span-12 bg-black text-grey flex items-center max-md:justify-between w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem]"
                 >
                     <span>Filters</span>
                     <span id="filters-toggle-sign" class="md:hidden" aria-hidden="true">
@@ -163,11 +163,12 @@ const cartFullWidth = pathname === "/information";
                     }
                     aria-current={p.slug === currentSlug ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-4 flex items-center justify-start w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors",
-                        // On the shop index under `md`, each card labels itself
-                        // with its name and price, so this row is redundant.
-                        // Product pages keep it as the way between products.
-                        currentSlug === null && "max-md:hidden",
+                        // Hidden entirely under `md`: the index labels each card
+                        // with its own name and price, and the product pages
+                        // don't have the room for a second row of chrome. The
+                        // archive row differs — see below — because its
+                        // collection pages have no other way back out.
+                        "cart-dim col-span-4 max-md:hidden flex items-center justify-start w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem] transition-colors",
                         currentSlug === null || p.slug === currentSlug
                             ? "bg-black text-grey"
                             : "bg-grey text-black",
@@ -199,7 +200,7 @@ const cartFullWidth = pathname === "/information";
                         c.slug === currentArchiveSlug ? "page" : undefined
                     }
                     class:list={[
-                        "cart-dim col-span-4 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors",
+                        "cart-dim col-span-4 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem] transition-colors",
                         // Mirrors the shop row: hidden on the archive index
                         // under `md`, where the cards carry their own titles.
                         currentArchiveSlug === null && "max-md:hidden",
@@ -228,7 +229,7 @@ const cartFullWidth = pathname === "/information";
                     data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "col-start-1 col-span-3 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors hover:bg-black hover:text-grey",
+                        "nav-item col-start-1 col-span-3 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem] transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -268,7 +269,7 @@ const cartFullWidth = pathname === "/information";
                     data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-3 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors hover:bg-black hover:text-grey",
+                        "nav-item cart-dim col-span-3 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem] transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -284,7 +285,10 @@ const cartFullWidth = pathname === "/information";
         data-nav-state={isHome ? "on" : "off"}
         aria-label="organicblue — home"
         class:list={[
-            "cart-dim col-span-12 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors  hover:bg-black hover:text-grey",
+            // Under `md` the logo yields three columns to the Menu button and
+            // stays grey-on-black regardless of route — the active-page signal
+            // there is the nav list the Menu button reveals, not this row.
+            "cart-dim col-span-12 max-md:col-span-9 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem] transition-colors  hover:bg-black hover:text-grey max-md:bg-grey max-md:text-black",
             isHome ? "bg-black text-grey" : "bg-grey text-black",
         ]}
     >
@@ -334,6 +338,20 @@ const cartFullWidth = pathname === "/information";
                 fill="currentColor"></path>
         </svg>
     </a>
+    {/* Mobile-only: reveals the nav list, which is collapsed under `md` (see
+        the style block). Grey at rest, inverted while the list is open. */}
+    <button
+        id="menu-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="navbar"
+        data-nav-key="menu"
+        data-nav-state="static"
+        class="cart-dim md:hidden col-span-3 flex items-center justify-between w-full rounded-xs h-10 px-2.5 py-[0.8125rem] bg-grey text-black transition-colors"
+    >
+        <span>Menu</span>
+        <span id="menu-toggle-sign" aria-hidden="true">+</span>
+    </button>
 </nav>
 
 {
@@ -362,7 +380,7 @@ const cartFullWidth = pathname === "/information";
         id="cart-mobile-btn"
         type="button"
         aria-label="Toggle cart"
-        class="flex items-center justify-between w-full rounded-xs bg-black text-grey h-11 px-2.5 py-[0.9375rem]"
+        class="flex items-center justify-between w-full rounded-xs bg-black text-grey h-10 px-2.5 py-[0.8125rem]"
     >
         <span id="cart-mobile-label">Cart</span>
         <span
@@ -434,10 +452,32 @@ const cartFullWidth = pathname === "/information";
         }
     }
 
-    /* The mobile cart toggle's width is driven by JS (Shop-button width when
-       closed, full width when open) — animate between the two. */
+    /* ── Mobile nav list ──────────────────────────────────────────────────
+       Under `md` the four nav items collapse behind the Menu button. Driven by
+       a class on the nav rather than a `hidden` utility so the id selector
+       reliably outranks the `flex` in each item's own class list. */
+    @media (width < 48rem) {
+        #navbar .nav-item {
+            display: none;
+        }
+        #navbar.menu-open .nav-item {
+            display: flex;
+        }
+        /* Pressed state: the inverse of the button's resting colours. */
+        #navbar.menu-open #menu-toggle {
+            background-color: var(--color-black);
+            color: var(--color-grey);
+        }
+    }
+
+    /* The mobile cart toggle's width is driven by JS (three-column width when
+       closed, full width when open) — animate between the two. The transform
+       channel is the homepage intro's tuck (see global.css), on the navbar's
+       slower timing so the two slide in together. */
     #cart-mobile {
-        transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        transition:
+            width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+            transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     /* Under `md` the panel lives inside #cart-mobile, so it drops out of fixed
@@ -467,6 +507,38 @@ const cartFullWidth = pathname === "/information";
         }
     }
 </style>
+
+<script>
+    import { flicker } from "../scripts/flicker";
+
+    // ── Mobile menu ----------------------------------------------------------
+    // Under `md` the four nav items are collapsed; this reveals them. Above
+    // `md` the button is hidden and the items are always shown, so it's inert
+    // there. The navbar is rebuilt on each navigation, so the menu always
+    // reopens closed and listeners can't stack.
+    document.addEventListener("astro:page-load", () => {
+        const nav = document.getElementById("navbar");
+        const toggle = document.getElementById("menu-toggle");
+        const sign = document.getElementById("menu-toggle-sign");
+        if (!nav || !toggle) return;
+
+        toggle.addEventListener("click", () => {
+            const open = nav.classList.toggle("menu-open");
+            toggle.setAttribute("aria-expanded", String(open));
+            if (sign) sign.textContent = open ? "−" : "+";
+
+            // Opening adds a row, so the navbar just got taller. Every page
+            // sizes its stage off #navbar.offsetHeight on resize — nothing
+            // watches for this on its own — so tell them to re-measure or the
+            // new row would sit over the bottom of the page content.
+            window.dispatchEvent(new Event("resize"));
+
+            if (open) {
+                flicker(nav.querySelectorAll(".nav-item"), { step: 0.05 });
+            }
+        });
+    });
+</script>
 
 <script>
     import { gsap } from "gsap";
@@ -756,7 +828,7 @@ const cartFullWidth = pathname === "/information";
         btn.id = "cart-checkout";
         btn.type = "button";
         btn.className =
-            "flex items-center justify-between w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] bg-black text-grey transition-colors hover:bg-grey hover:text-black";
+            "flex items-center justify-between w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem] bg-black text-grey transition-colors hover:bg-grey hover:text-black";
         const label = document.createElement("span");
         label.textContent = "Checkout";
         const totalEl = document.createElement("span");
@@ -783,20 +855,33 @@ const cartFullWidth = pathname === "/information";
     // the Shop button.
     const isMobile = () => window.matchMedia("(width < 48rem)").matches;
 
-    // Size + label the mobile toggle. Closed it matches the Shop button so it
-    // reads as the same 3-column tile; open it stretches to the full width its
-    // top-0.5/left-0.5 inset allows, and the CSS width transition animates it.
+    // Size + label the mobile toggle. Closed it matches whichever three-column
+    // tile is on screen so it reads as one of them; open it stretches to the
+    // full width its top-0.5/left-0.5 inset allows, and the CSS width
+    // transition animates it.
+    //
+    // The gauge has to be the Menu button under `md`: the Shop button is
+    // collapsed behind the menu there, so measuring it would return 0 and the
+    // cart would shrink to nothing whenever the menu was closed. Both are
+    // col-span-3, so they're the same width by construction. Falling back on a
+    // zero measurement covers the other direction — the Menu button is display:
+    // none above `md`, where the Shop button is the visible one.
     const syncMobileCart = (totalQty: number) => {
         const cartMobile = document.getElementById("cart-mobile");
-        const shopNav = document.getElementById("shop-nav");
-        if (!cartMobile || !shopNav) return;
+        if (!cartMobile) return;
+
+        const gaugeWidth =
+            document.getElementById("menu-toggle")?.getBoundingClientRect()
+                .width ||
+            document.getElementById("shop-nav")?.getBoundingClientRect().width ||
+            0;
 
         const openWidth = `${document.documentElement.clientWidth - MOBILE_INSET * 2}px`;
         // On /information the toggle is full width in both states.
         const closedWidth =
             cartMobile.dataset.cartFull !== undefined
                 ? openWidth
-                : `${shopNav.getBoundingClientRect().width}px`;
+                : `${gaugeWidth}px`;
 
         // Adding to an empty cart un-hides the toggle and opens it in the same
         // pass. A width set on an element that wasn't rendered a moment ago has
