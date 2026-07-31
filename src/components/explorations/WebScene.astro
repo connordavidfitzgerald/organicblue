@@ -1131,6 +1131,10 @@ const images = docs.map((doc) => {
         //    group's quaternion, so there's no polar angle to clamp and the
         //    sphere tumbles end over end. autoSpin already turns the group this
         //    way, so the two compose without special-casing.
+        // Held as a MediaQueryList rather than calling matchMedia per frame —
+        // `.matches` is a cheap property read and stays live across resizes.
+        const mobileMQ = window.matchMedia("(width < 48rem)");
+
         const DRAG_K = 0.005; // radians per pixel dragged
         const DRAG_DECAY = 0.94; // per-frame coast after release
         const DRAG_EPS = 1e-4; // below this the coast has stopped
@@ -1572,21 +1576,34 @@ const images = docs.map((doc) => {
                     if (innerCentered && !panDragging) autoSpin();
                 } else {
                     // Overview: OrbitControls own the dolly only — rotation is
-                    // the group spin above. A released drag coasts to a stop,
-                    // then idle auto-rotation takes back over.
+                    // the group spin above.
                     controls.update();
+
+                    // A released drag coasts to a stop. This is the user's
+                    // throw, kept separate from the ambient spin so the two can
+                    // run together on touch.
                     const coasting =
                         Math.abs(dragVelPitch) > DRAG_EPS ||
                         Math.abs(dragVelYaw) > DRAG_EPS;
-                    if (orbitDragging) {
-                        // The drag itself already turned the group this frame.
-                    } else if (coasting) {
+                    if (!orbitDragging && coasting) {
                         rotateGroup(dragVelPitch, dragVelYaw);
                         dragVelPitch *= DRAG_DECAY;
                         dragVelYaw *= DRAG_DECAY;
-                    } else if (
-                        !interacting &&
-                        Date.now() - lastInteractionTime > 500
+                    }
+
+                    // Ambient spin. On touch it never stops: there's no hover
+                    // state there to signal the sphere is interactive, so the
+                    // motion has to do it — and because both the drag and the
+                    // spin turn the same group, they simply compose rather than
+                    // fighting. Pointer-driven viewports keep the original
+                    // behaviour, where the spin yields while you're working and
+                    // resumes a beat after you stop.
+                    if (
+                        mobileMQ.matches ||
+                        (!orbitDragging &&
+                            !coasting &&
+                            !interacting &&
+                            Date.now() - lastInteractionTime > 500)
                     ) {
                         autoSpin();
                     }
