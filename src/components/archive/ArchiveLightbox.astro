@@ -1,8 +1,9 @@
 ---
 // Fills the stage area *above* the navbar and shows one archive image at a time.
 // Reads the collection grid's thumbnails (their data-full / data-alt) as the
-// image list. Navigate: the vertical middle of the left/right strips, ← / →
-// keys, or swipe (wrapping). Close: the corners, the image/backdrop, or Escape.
+// image list. Navigate: click/tap the left or right half of the image, ← / →
+// keys, or swipe (wrapping). Close: the band above or below the image, or
+// Escape.
 ---
 
 <div
@@ -16,30 +17,35 @@
     >
     </div>
 
-    <!-- Prev / next zones cover only the vertical middle of the left/right
-         strips; the corners (and centre) fall through to the backdrop = close. -->
+    <!-- Prev / next zones. They sit above the image (z-20 over its z-10) and
+         split the vertical middle in half, so clicking either side of the image
+         steps through it. No arrows — the affordance is the swipe. The bands
+         above and below stay clear of them and fall through to the backdrop,
+         which is the only pointer route out now that the image runs the full
+         width and leaves no side margin to click. -->
     <button
         id="lightbox-prev"
         type="button"
         aria-label="Previous image"
-        class="absolute left-0 top-1/4 h-1/2 w-[28%] flex items-center justify-start pl-3 text-black/60 hover:text-black transition-colors cursor-pointer"
+        class="absolute left-0 top-1/4 z-20 h-1/2 w-1/2 cursor-pointer"
     >
-        <span class="text-2xl leading-none select-none">‹</span>
     </button>
     <button
         id="lightbox-next"
         type="button"
         aria-label="Next image"
-        class="absolute right-0 top-1/4 h-1/2 w-[28%] flex items-center justify-end pr-3 text-black/60 hover:text-black transition-colors cursor-pointer"
+        class="absolute right-0 top-1/4 z-20 h-1/2 w-1/2 cursor-pointer"
     >
-        <span class="text-2xl leading-none select-none">›</span>
     </button>
 
+    {/* Full-bleed to the site's 2px gutter. `object-contain` keeps the aspect
+       ratio, so on a portrait viewport this fills the width exactly and
+       letterboxes top/bottom — which is also what leaves the close bands. */}
     <img
         id="lightbox-image"
         src=""
         alt=""
-        class="relative z-10 h-full max-h-full max-w-full object-contain pointer-events-none px-[28%] py-1 "
+        class="relative z-10 h-full max-h-full w-full object-contain pointer-events-none px-0.5 py-0.5"
     />
 </div>
 
