@@ -7,6 +7,12 @@
 const ZOOM = 2.4; // magnification factor
 const MOVE_THRESHOLD = 6; // px of pointer travel that counts as a pan, not a click
 
+// Under `md` the gallery scrolls horizontally and a tap steps between images
+// (see the product page's wireGalleryTaps), so magnification stands down there
+// rather than competing for the same gesture. Checked per event, not once at
+// wire time, so crossing the breakpoint doesn't strand the wrong behaviour.
+const isMobile = () => window.matchMedia("(width < 48rem)").matches;
+
 function wireImage(img: HTMLElement) {
     if (img.dataset.zoomWired) return;
     img.dataset.zoomWired = "1";
@@ -71,6 +77,11 @@ function wireImage(img: HTMLElement) {
 
     img.addEventListener("pointerup", (e) => {
         if (moved) return; // that was a pan drag, not a click
+        if (isMobile()) {
+            // Leave a zoom from a wider viewport behind rather than stranding it.
+            if (isZoomed()) zoomOut();
+            return;
+        }
         if (isZoomed()) zoomOut();
         else zoomIn(e.clientX, e.clientY);
     });

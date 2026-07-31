@@ -44,6 +44,25 @@ const faqAccordions = [
     },
 ];
 
+// Contact section. Rendered as plain text links on desktop and as tappable rows
+// in the mobile stack.
+const email = "info@organicblue000.com";
+const contactLinks = [
+    { label: email, href: `mailto:${email}` },
+    { label: "Instagram", href: "#" }, // TODO: real URL
+    { label: "Soundcloud", href: "#" }, // TODO: real URL
+];
+
+const services = [
+    "Research.",
+    "Prototyping.",
+    "Concepting.",
+    "World Building.",
+    "Creative Direction.",
+    "Small batch production.",
+    "Technical Product design.",
+];
+
 // Lightweight body formatting so accordion copy can mix paragraphs and bullets:
 //   • a blank line starts a new paragraph
 //   • a line starting with "- " becomes a bullet
@@ -83,7 +102,7 @@ function parseBody(body: string): Block[] {
 <Layout title="Organic Blue">
     <div
         id="info-stage"
-        class="fixed left-0 right-0 top-0 grid grid-cols-12 gap-0.5 px-0.5 pt-0.5 text-xs text-grey"
+        class="fixed left-0 right-0 top-0 grid grid-cols-12 gap-0.5 px-0.5 pt-0.5 text-xs text-grey max-md:hidden"
         style="bottom: var(--nav-h, 3.5rem);"
     >
         <!-- About -->
@@ -186,7 +205,16 @@ function parseBody(body: string): Block[] {
             <div
                 class="flex flex-col px-1.5 py-1.5 grow rounded-xs bg-black"
             >
-                info@organicblue000.com
+                {
+                    contactLinks.map((link) => (
+                        <a
+                            href={link.href}
+                            class="w-fit transition-opacity hover:opacity-60"
+                        >
+                            {link.label}
+                        </a>
+                    ))
+                }
             </div>
         </div>
 
@@ -200,14 +228,178 @@ function parseBody(body: string): Block[] {
             <ul
                 class="flex flex-col px-1.5 py-1.5 grow rounded-xs bg-black"
             >
-                <li>Research.</li>
-                <li>Prototyping.</li>
-                <li>Concepting.</li>
-                <li>World Building.</li>
-                <li>Creative Direction.</li>
-                <li>Small batch production.</li>
-                <li>Technical Product design.</li>
+                {services.map((s) => <li>{s}</li>)}
             </ul>
+        </div>
+    </div>
+
+    {
+        /* Mobile stack. The four desktop columns become one accordion each,
+       with About's intro promoted to a permanent hero tile that absorbs the
+       slack above them. Its top offset clears the mobile cart toggle, which is
+       full width on this page and only present when the cart isn't empty
+       (--cart-h is published by the navbar's cart script). */
+    }
+    <div
+        id="info-stage-mobile"
+        class="md:hidden fixed left-0 right-0 flex flex-col gap-0.5 px-0.5 overflow-y-auto text-xs text-grey"
+        style="top: calc(0.125rem + var(--cart-h, 0px)); bottom: var(--nav-h, 3.5rem);"
+    >
+        <div
+            class="flex flex-col p-2.5 rounded-xs bg-black grow min-h-0 overflow-y-auto"
+        >
+            Organic Blue is a Montreal-based design studio working across
+            technical garments, objects and spatial experiences. Our practice is
+            built around a single question: How do the environments we move
+            through shape the way we experience ourselves?
+        </div>
+
+        {/* About */}
+        <div
+            class="accordion flex flex-col gap-0.5 shrink-0"
+            data-accordion-group="info-mobile"
+        >
+            <button
+                type="button"
+                class="accordion-header flex items-center justify-between w-full h-11 px-2.5 py-[0.9375rem] rounded-xs bg-black text-grey"
+                aria-expanded="false"
+            >
+                <span>About</span>
+                <span class="accordion-icon select-none">+</span>
+            </button>
+            <div class="accordion-body hidden space-y-0.5">
+                {
+                    aboutAccordions.map((item) => (
+                        <div
+                            class="accordion flex flex-col gap-0.5"
+                            data-accordion-group="about-sub"
+                        >
+                            <button
+                                type="button"
+                                class="accordion-header flex items-center justify-between w-full h-11 px-2.5 py-[0.9375rem] rounded-xs bg-grey text-black"
+                                aria-expanded="false"
+                            >
+                                <span>{item.term}</span>
+                                <span class="accordion-icon select-none">+</span>
+                            </button>
+                            <div class="accordion-body hidden space-y-2 p-2.5 rounded-xs bg-grey text-black">
+                                {parseBody(item.body).map((block) =>
+                                    block.type === "ul" ? (
+                                        <ul class="list-disc pl-4">
+                                            {block.items.map((li) => (
+                                                <li>{li}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p>{block.text}</p>
+                                    ),
+                                )}
+                            </div>
+                        </div>
+                    ))
+                }
+            </div>
+        </div>
+
+        {/* FAQ */}
+        <div
+            class="accordion flex flex-col gap-0.5 shrink-0"
+            data-accordion-group="info-mobile"
+        >
+            <button
+                type="button"
+                class="accordion-header flex items-center justify-between w-full h-11 px-2.5 py-[0.9375rem] rounded-xs bg-black text-grey"
+                aria-expanded="false"
+            >
+                <span>FAQ</span>
+                <span class="accordion-icon select-none">+</span>
+            </button>
+            <div class="accordion-body hidden space-y-0.5">
+                <div class="p-2.5 rounded-xs bg-grey text-black">{faqIntro}</div>
+                {
+                    faqAccordions.map((item) => (
+                        <div
+                            class="accordion flex flex-col gap-0.5"
+                            data-accordion-group="faq-sub"
+                        >
+                            <button
+                                type="button"
+                                class="accordion-header flex items-center justify-between w-full h-11 px-2.5 py-[0.9375rem] rounded-xs bg-grey text-black"
+                                aria-expanded="false"
+                            >
+                                <span>{item.term}</span>
+                                <span class="accordion-icon select-none">+</span>
+                            </button>
+                            <div class="accordion-body hidden space-y-2 p-2.5 rounded-xs bg-grey text-black">
+                                {parseBody(item.body).map((block) =>
+                                    block.type === "ul" ? (
+                                        <ul class="list-disc pl-4">
+                                            {block.items.map((li) => (
+                                                <li>{li}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p>{block.text}</p>
+                                    ),
+                                )}
+                            </div>
+                        </div>
+                    ))
+                }
+            </div>
+        </div>
+
+        {/* Contact */}
+        <div
+            class="accordion flex flex-col gap-0.5 shrink-0"
+            data-accordion-group="info-mobile"
+        >
+            <button
+                type="button"
+                class="accordion-header flex items-center justify-between w-full h-11 px-2.5 py-[0.9375rem] rounded-xs bg-black text-grey"
+                aria-expanded="false"
+            >
+                <span>Contact</span>
+                <span class="accordion-icon select-none">+</span>
+            </button>
+            <div class="accordion-body hidden space-y-0.5">
+                {
+                    contactLinks.map((link) => (
+                        <a
+                            href={link.href}
+                            class="flex items-center w-full h-11 px-2.5 py-[0.9375rem] rounded-xs bg-grey text-black"
+                        >
+                            {link.label}
+                        </a>
+                    ))
+                }
+            </div>
+        </div>
+
+        {/* Services */}
+        <div
+            class="accordion flex flex-col gap-0.5 shrink-0"
+            data-accordion-group="info-mobile"
+        >
+            <button
+                type="button"
+                class="accordion-header flex items-center justify-between w-full h-11 px-2.5 py-[0.9375rem] rounded-xs bg-black text-grey"
+                aria-expanded="false"
+            >
+                <span>Services</span>
+                <span class="accordion-icon select-none">+</span>
+            </button>
+            <div class="accordion-body hidden space-y-0.5">
+                <a
+                    href={`mailto:${email}`}
+                    class="flex items-center w-full h-11 px-2.5 py-[0.9375rem] rounded-xs bg-grey text-black"
+                >
+                    {email}
+                </a>
+                <ul class="flex flex-col p-2.5 rounded-xs bg-grey text-black">
+                    {services.map((s) => <li>{s}</li>)}
+                </ul>
+            </div>
         </div>
     </div>
 </Layout>
@@ -217,9 +409,26 @@ function parseBody(body: string): Block[] {
 
     function sizeStage() {
         const nav = document.getElementById("navbar");
-        const stage = document.getElementById("info-stage");
-        if (!nav || !stage) return;
-        stage.style.setProperty("--nav-h", `${nav.offsetHeight}px`);
+        if (!nav) return;
+        ["info-stage", "info-stage-mobile"].forEach((id) => {
+            document
+                .getElementById(id)
+                ?.style.setProperty("--nav-h", `${nav.offsetHeight}px`);
+        });
+    }
+
+    // Collapse an accordion without animating — used when a sibling in the same
+    // group takes over. Each accordion's own header/body/icon come first in
+    // document order, so a plain querySelector skips any nested ones.
+    function closeAccordion(accordion: Element) {
+        accordion
+            .querySelector<HTMLElement>(".accordion-body")
+            ?.classList.add("hidden");
+        const icon = accordion.querySelector<HTMLElement>(".accordion-icon");
+        if (icon) icon.textContent = "+";
+        accordion
+            .querySelector<HTMLElement>(".accordion-header")
+            ?.setAttribute("aria-expanded", "false");
     }
 
     function wireAccordions() {
@@ -234,10 +443,28 @@ function parseBody(body: string): Block[] {
                         accordion?.querySelector<HTMLElement>(".accordion-body");
                     const icon =
                         btn.querySelector<HTMLElement>(".accordion-icon");
-                    if (!body || !icon) return;
+                    if (!accordion || !body || !icon) return;
                     const open = body.classList.toggle("hidden") === false;
                     icon.textContent = open ? "−" : "+";
                     btn.setAttribute("aria-expanded", String(open));
+
+                    // Accordions tagged into a group are mutually exclusive —
+                    // the mobile stack uses this so only one section is ever
+                    // expanded and the hero tile absorbs the rest. Untagged
+                    // accordions (desktop, and the nested ones) toggle freely.
+                    const group = accordion.getAttribute(
+                        "data-accordion-group",
+                    );
+                    if (open && group) {
+                        document
+                            .querySelectorAll(
+                                `.accordion[data-accordion-group="${group}"]`,
+                            )
+                            .forEach((other) => {
+                                if (other !== accordion) closeAccordion(other);
+                            });
+                    }
+
                     // Blink the revealed copy in with the shared flicker
                     // language, in reading order (no positional re-sort).
                     if (open) {

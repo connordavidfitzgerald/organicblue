@@ -48,14 +48,13 @@ const images = docs.map((doc) => {
 }
 <div
     id="feature-bar"
-    class="fixed left-0 top-0 z-20 hidden w-0 items-center justify-between gap-1 rounded-xs bg-black px-1.5 py-1.5 h-8 pointer-events-none"
+    class="fixed left-0 top-0 z-20 hidden w-0 items-center justify-between gap-1 rounded-xs bg-black px-1.5 py-1.5 h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] pointer-events-none"
 >
-    <span id="feature-name" class="truncate text-sm leading-none text-grey"
-    ></span>
+    <span id="feature-name" class="truncate text-sm text-grey"></span>
     <a
         id="feature-shop"
         href="#"
-        class="pointer-events-auto flex h-7 -mr-1 shrink-0 items-center gap-0.5 rounded-xs bg-grey px-1.5 text-xs leading-none text-black transition-opacity hover:opacity-80"
+        class="pointer-events-auto flex h-7 max-md:h-10 -mr-1 max-md:-mr-2 shrink-0 items-center gap-0.5 rounded-xs bg-grey px-1.5 max-md:px-2.5 text-xs leading-none text-black transition-colors hover:bg-black hover:text-grey"
     >
         <span>Shop</span>
         <svg
@@ -113,8 +112,9 @@ const images = docs.map((doc) => {
             0.1,
             100,
         );
-        // Start pulled back and dolly in on load (see the intro tween near
-        // startLoop) — the resting distance is 2.
+        // Placeholder only: the intro tween near startLoop overwrites this on
+        // the same tick with a pulled-back start, then dollies in to the
+        // viewport's fit distance (see fitDistance).
         camera.position.z = 5;
 
         // ── Motion blur: a directional *radial* (zoom) blur. The scene is drawn
@@ -228,6 +228,13 @@ const images = docs.map((doc) => {
         const controls = new OrbitControls(camera, canvas);
         controls.enableDamping = true;
         controls.enablePan = false;
+        // Rotation is ours, not OrbitControls'. It orbits the camera in
+        // spherical coordinates and clamps the polar angle to (0, PI) — via
+        // Spherical.makeSafe(), which no option can widen — so a vertical drag
+        // always stops dead at the poles. Instead we spin the sphere group
+        // itself on camera-relative world axes (see rotateGroup), which composes
+        // without a pole to hit. OrbitControls keeps the dolly.
+        controls.enableRotate = false;
         controls.dampingFactor = 0.04;
         controls.minDistance = 0;
         controls.maxDistance = 10;
@@ -435,6 +442,27 @@ const images = docs.map((doc) => {
 
         // ── Sprites — one per image, auto-billboarded
         const SPRITE_H = 0.55;
+
+        // ── Overview framing
+        //    Distance at which the whole sphere sits inside the frame. The
+        //    envelope is the shell plus the sprites standing off it — they're
+        //    billboards, so a full sprite height of margin covers the worst
+        //    case where one faces us edge-on at the silhouette.
+        //
+        //    Which axis is tighter depends on the viewport: a wide desktop
+        //    canvas is bounded by the vertical FOV, but the horizontal
+        //    half-angle narrows with the aspect ratio, so a portrait phone is
+        //    bounded horizontally and has to pull back much further. Computing
+        //    it per-viewport is what makes the sphere fit at both.
+        const FIT_MARGIN = SPRITE_H;
+        function fitDistance() {
+            const vHalf = THREE.MathUtils.degToRad(camera.fov) / 2;
+            const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
+            return (SPHERE_R + FIT_MARGIN) / Math.sin(Math.min(vHalf, hHalf));
+        }
+        // Dolly ceiling, with headroom so you can still pull back past the fit.
+        const maxDollyDistance = () => fitDistance() * 1.6;
+
         const sprites: THREE.Sprite[] = [];
         // Subset that features a shop product — the feature bar tracks whichever
         // of these is nearest the viewport centre while zoomed (see updateFeatureBar).
@@ -1034,8 +1062,11 @@ const images = docs.map((doc) => {
         //    resting distance) from wherever it is — panned overview, zoomed, or
         //    inside — and hand back to OrbitControls. The aim is slerped so it
         //    never snaps, even when reversing from an inner outward-looking view.
-        const INITIAL_Z = 6.25; // resting distance after the intro dolly
+        // Resting distance after the intro dolly — the framing that fits the
+        // whole sphere at the current viewport.
+        const initialZ = () => fitDistance();
         function resetView() {
+            const INITIAL_Z = initialZ();
             gsap.killTweensOf(camera.position);
             gsap.killTweensOf(lookTarget);
             if (zoomedSprite) {
@@ -1060,7 +1091,7 @@ const images = docs.map((doc) => {
             innerCentered = false;
             controls.enabled = false;
             controls.minDistance = 0; // restore overview dolly range
-            controls.maxDistance = 10;
+            controls.maxDistance = maxDollyDistance();
             lookTarget.set(0, 0, 0);
 
             const posTween = gsap.to(camera.position, {
@@ -1094,6 +1125,29 @@ const images = docs.map((doc) => {
         const pointer = new THREE.Vector2();
         let pointerDown = { x: 0, y: 0 };
 
+        // ── Overview rotation. Spinning the group rather than orbiting the
+        //    camera is what makes vertical dragging unbounded: each drag is a
+        //    rotation about a camera-relative *world* axis, composed onto the
+        //    group's quaternion, so there's no polar angle to clamp and the
+        //    sphere tumbles end over end. autoSpin already turns the group this
+        //    way, so the two compose without special-casing.
+        const DRAG_K = 0.005; // radians per pixel dragged
+        const DRAG_DECAY = 0.94; // per-frame coast after release
+        const DRAG_EPS = 1e-4; // below this the coast has stopped
+        const _dragRight = new THREE.Vector3();
+        const _dragUp = new THREE.Vector3();
+        let orbitDragging = false;
+        let lastDrag = { x: 0, y: 0 };
+        let dragVelPitch = 0;
+        let dragVelYaw = 0;
+
+        function rotateGroup(pitch: number, yaw: number) {
+            _dragRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+            _dragUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+            group.rotateOnWorldAxis(_dragUp, yaw);
+            group.rotateOnWorldAxis(_dragRight, pitch);
+        }
+
         const onPointerDown = (e: PointerEvent) => {
             pointerDown = { x: e.clientX, y: e.clientY };
             // While zoomed we drive the camera ourselves, so a drag pans the
@@ -1101,10 +1155,40 @@ const images = docs.map((doc) => {
             if (zoomed && !zoomTweening) {
                 panDragging = true;
                 lastPan = { x: e.clientX, y: e.clientY };
+            } else if (!zoomTweening) {
+                // Overview: grab the sphere. Kill any coast so the grab is
+                // immediate rather than fighting leftover momentum.
+                orbitDragging = true;
+                interacting = true;
+                dragVelPitch = dragVelYaw = 0;
+                lastDrag = { x: e.clientX, y: e.clientY };
+                // OrbitControls used to capture the pointer for us. Now that the
+                // rotation is ours, capture it here too — without this, dragging
+                // past the canvas edge strands the drag (no pointerup reaches
+                // us) and idle auto-rotation never resumes.
+                try {
+                    canvas.setPointerCapture(e.pointerId);
+                } catch {
+                    /* pointer already gone — nothing to capture */
+                }
             }
         };
         const onPointerMove = (e: PointerEvent) => {
-            if (!panDragging || zoomTweening) return;
+            if (zoomTweening) return;
+
+            if (orbitDragging) {
+                const dx = e.clientX - lastDrag.x;
+                const dy = e.clientY - lastDrag.y;
+                lastDrag = { x: e.clientX, y: e.clientY };
+                // Grab-and-drag: the near face follows the pointer, so dragging
+                // right spins it right and dragging down tips it down.
+                dragVelPitch = dy * DRAG_K;
+                dragVelYaw = dx * DRAG_K;
+                rotateGroup(dragVelPitch, dragVelYaw);
+                return;
+            }
+
+            if (!panDragging) return;
             const dx = e.clientX - lastPan.x;
             const dy = e.clientY - lastPan.y;
             lastPan = { x: e.clientX, y: e.clientY };
@@ -1120,6 +1204,16 @@ const images = docs.map((doc) => {
         };
         const onPointerUp = (e: PointerEvent) => {
             panDragging = false;
+            if (orbitDragging) {
+                orbitDragging = false;
+                interacting = false;
+                lastInteractionTime = Date.now();
+                try {
+                    canvas.releasePointerCapture(e.pointerId);
+                } catch {
+                    /* never captured, or already released */
+                }
+            }
             if (
                 Math.hypot(
                     e.clientX - pointerDown.x,
@@ -1178,6 +1272,12 @@ const images = docs.map((doc) => {
             const h = canvas.clientHeight;
             camera.aspect = w / h;
             camera.updateProjectionMatrix();
+            // The fit distance moves with the aspect ratio, so the dolly
+            // ceiling has to follow it — otherwise rotating a phone to portrait
+            // would leave the camera unable to pull back far enough. The camera
+            // itself is left where it is; yanking it mid-gesture would be worse
+            // than a slightly tight frame until the next reset.
+            controls.maxDistance = maxDollyDistance();
             renderer.setSize(w, h, false);
             const db = renderer.getDrawingBufferSize(new THREE.Vector2());
             sceneTarget.setSize(db.x, db.y);
@@ -1425,10 +1525,25 @@ const images = docs.map((doc) => {
                     // paused only while the user is actively dragging to look.
                     if (innerCentered && !panDragging) autoSpin();
                 } else {
-                    // Overview: OrbitControls drive the camera; auto-rotate when idle.
+                    // Overview: OrbitControls own the dolly only — rotation is
+                    // the group spin above. A released drag coasts to a stop,
+                    // then idle auto-rotation takes back over.
                     controls.update();
-                    if (!interacting && Date.now() - lastInteractionTime > 500)
+                    const coasting =
+                        Math.abs(dragVelPitch) > DRAG_EPS ||
+                        Math.abs(dragVelYaw) > DRAG_EPS;
+                    if (orbitDragging) {
+                        // The drag itself already turned the group this frame.
+                    } else if (coasting) {
+                        rotateGroup(dragVelPitch, dragVelYaw);
+                        dragVelPitch *= DRAG_DECAY;
+                        dragVelYaw *= DRAG_DECAY;
+                    } else if (
+                        !interacting &&
+                        Date.now() - lastInteractionTime > 500
+                    ) {
                         autoSpin();
+                    }
                 }
 
                 // Track the featured-product bar under the focused image.
@@ -1508,11 +1623,17 @@ const images = docs.map((doc) => {
         // distance. OrbitControls derives its spherical from the live camera
         // position each frame, so tweening z is respected; the dolly speed also
         // feeds the radial blur, giving a subtle zoom streak on the way in.
+        // The dolly ceiling has to clear the fit distance, or on a portrait
+        // viewport — where fitting the sphere needs ~11 units — the old flat
+        // limit of 10 would clamp the camera before the sphere was fully in
+        // frame, making it impossible to zoom out that far by hand either.
+        controls.maxDistance = maxDollyDistance();
+
         gsap.fromTo(
             camera.position,
-            { z: 8 },
+            { z: fitDistance() * 1.28 },
             {
-                z: 6.25,
+                z: fitDistance(),
                 duration: 2,
                 ease: "power2.out",
                 // Hand control back once the load-in dolly finishes so the user

@@ -54,26 +54,42 @@ const localGallery =
 <Layout title={`${product.name} — Organic Blue`}>
     <div
         id="shop-stage"
-        class="fixed left-0 right-0 top-0 flex flex-row gap-0.5 px-0.5 pt-0.5 text-xs text-grey"
+        class="fixed left-0 right-0 top-0 flex flex-row gap-0.5 px-0.5 pt-0.5 text-xs text-grey max-md:flex-col"
         style="bottom: var(--nav-h, 3.5rem);"
     >
-        <!-- Column 1: product info -->
-        <div class="flex w-full h-full flex-col gap-0.5">
-            <div
+        <!-- Column 1: product info. Under `md` this stacks below the gallery
+             and reorders to description → specs → add-to-cart. -->
+        <div class="flex w-full h-full flex-col gap-0.5 max-md:h-auto max-md:shrink-0">
+            {/* Row wrapper: a passthrough on desktop (the toggle is hidden, so
+                the description fills it), a 9/3 split on mobile. */}
+            <div class="flex w-full grow max-md:grid max-md:grid-cols-12 max-md:gap-0.5">
+                <div
 
-                class="flex w-full px-1.5 py-1.5 rounded-xs grow flex-col justify-center items-center bg-black"
-            >
-                <div class="text-center">
-                    <p>{product.detailTitle}</p>
-                    {
-                        product.description && (
-                            <div
-                                class="prose-none"
-                                set:html={product.description}
-                            />
-                        )
-                    }
+                    class="flex w-full px-1.5 py-1.5 rounded-xs grow flex-col justify-center items-center bg-black max-md:col-span-9 max-md:p-2.5 max-md:justify-start max-md:items-start max-md:text-left"
+                >
+                    <div class="text-center max-md:text-left">
+                        <p>{product.detailTitle}</p>
+                        {
+                            product.description && (
+                                <div
+                                    class="prose-none"
+                                    set:html={product.description}
+                                />
+                            )
+                        }
+                    </div>
                 </div>
+                {/* Mobile-only: the spec panel is always visible on desktop, so
+                    this toggle only exists under `md`. */}
+                <button
+                    id="spec-toggle"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="spec-panel"
+                    class="md:hidden col-span-3 flex items-start justify-end p-2.5 rounded-xs bg-black text-grey"
+                >
+                    <span><span id="spec-toggle-sign">+</span> Info</span>
+                </button>
             </div>
             <button
                 type="button"
@@ -83,7 +99,7 @@ const localGallery =
                 data-name={product.name}
                 data-price={product.price}
                 data-image={cartImage}
-                class="flex w-full px-1.5 py-1.5 rounded-xs h-7.5 flex-row justify-between bg-black text-grey transition-colors hover:bg-grey hover:text-black"
+                class="flex w-full items-center px-1.5 py-1.5 rounded-xs h-8 flex-row justify-between bg-black text-grey transition-colors hover:bg-grey hover:text-black max-md:order-1 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem]"
             >
                 <span>Add to cart</span>
                 <span>{product.price}</span>
@@ -99,10 +115,10 @@ const localGallery =
                     data-fade-in
                     data-fade-in-duration="0.4"
                     data-fade-in-ease="power2.inOut"
-                    class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black"
+                    class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black max-md:-order-1 max-md:h-auto max-md:grow max-md:min-h-0 max-md:flex max-md:overflow-x-auto max-md:overflow-y-hidden max-md:snap-x"
                 >
                     {product.images.map((img, i) => (
-                        <div class="h-full w-full snap-start snap-always">
+                        <div class="h-full w-full snap-start snap-always max-md:shrink-0">
                             <img
                                 src={img.full}
                                 alt={img.alt}
@@ -116,10 +132,10 @@ const localGallery =
             ) : localGallery.length > 0 ? (
                 <div
                     data-fade-in
-                    class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black"
+                    class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black max-md:-order-1 max-md:h-auto max-md:grow max-md:min-h-0 max-md:flex max-md:overflow-x-auto max-md:overflow-y-hidden max-md:snap-x"
                 >
                     {localGallery.map((img, i) => (
-                        <div class="h-full w-full snap-start snap-always">
+                        <div class="h-full w-full snap-start snap-always max-md:shrink-0">
                             <Image
                                 src={img}
                                 alt={`${product.name} view ${i + 1}`}
@@ -131,7 +147,7 @@ const localGallery =
             ) : (
                 <div
                     data-fade-in
-                    class="h-full w-full rounded-xs bg-grey flex items-center justify-center text-black"
+                    class="h-full w-full rounded-xs bg-grey flex items-center justify-center text-black max-md:-order-1 max-md:h-auto max-md:grow max-md:min-h-0"
                 >
                     {product.name} image
                 </div>
@@ -151,6 +167,7 @@ const localGallery =
 </style>
 
 <script>
+    import { flicker } from "../../scripts/flicker";
     import "../../scripts/textReveal";
     import "../../scripts/fadeIn";
     import "../../scripts/shopZoom";
@@ -162,6 +179,71 @@ const localGallery =
         stage.style.setProperty("--nav-h", `${nav.offsetHeight}px`);
     }
 
-    document.addEventListener("astro:page-load", sizeStage);
+    // Mobile-only: the spec panel is collapsed behind the Info toggle. Above
+    // `md` the toggle is hidden and the panel is always shown, so this is inert
+    // there. Mirrors the navbar's filters toggle.
+    function wireSpecToggle() {
+        const toggle = document.getElementById("spec-toggle");
+        const panel = document.getElementById("spec-panel");
+        const sign = document.getElementById("spec-toggle-sign");
+        if (!toggle || !panel) return;
+
+        toggle.addEventListener("click", () => {
+            const open = panel.classList.toggle("is-open");
+            toggle.setAttribute("aria-expanded", String(open));
+            if (sign) sign.textContent = open ? "−" : "+";
+            // textReveal.ts already cascaded these rows on page load and left
+            // them at full opacity, so re-blink them on each reveal.
+            if (open) flicker(panel.querySelectorAll("p, li"), { step: 0.03 });
+        });
+    }
+
+    // Mobile-only: the gallery snaps horizontally, so swiping already moves
+    // between images. This adds the cursor equivalent — tapping either half of
+    // the image steps a slide, wrapping at both ends. Above `md` the gallery is
+    // a vertical scroller and taps belong to shopZoom, which bails out under
+    // `md` for the same reason.
+    const TAP_SLOP = 8; // px of travel that makes it a swipe, not a tap
+
+    function wireGalleryTaps() {
+        const gallery = document.querySelector<HTMLElement>(".shop-gallery");
+        if (!gallery) return;
+
+        let downX = 0;
+        let downY = 0;
+
+        gallery.addEventListener("pointerdown", (e) => {
+            downX = e.clientX;
+            downY = e.clientY;
+        });
+
+        gallery.addEventListener("pointerup", (e) => {
+            if (!window.matchMedia("(width < 48rem)").matches) return;
+            if (Math.hypot(e.clientX - downX, e.clientY - downY) > TAP_SLOP)
+                return;
+
+            const rect = gallery.getBoundingClientRect();
+            const forward = e.clientX - rect.left > rect.width / 2;
+            const step = gallery.clientWidth;
+            // scrollBy stalls at the ends, so wrap explicitly instead.
+            const atEnd =
+                gallery.scrollLeft + step >= gallery.scrollWidth - 1;
+            const atStart = gallery.scrollLeft <= 1;
+            const left = forward
+                ? atEnd
+                    ? 0
+                    : gallery.scrollLeft + step
+                : atStart
+                  ? gallery.scrollWidth - step
+                  : gallery.scrollLeft - step;
+            gallery.scrollTo({ left, behavior: "smooth" });
+        });
+    }
+
+    document.addEventListener("astro:page-load", () => {
+        sizeStage();
+        wireSpecToggle();
+        wireGalleryTaps();
+    });
     window.addEventListener("resize", sizeStage);
 </script>

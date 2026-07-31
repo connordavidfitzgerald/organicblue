@@ -45,6 +45,11 @@ const currentArchiveSlug = pathname.startsWith("/archive/")
 // inverse of the button's own colours (button black -> badge grey, and vice
 // versa), so we key both off the same active check.
 const shopActive = isActive("/shop");
+
+// The mobile cart normally matches the Shop button's 3-column width, but the
+// information page's stacked layout reads better with it spanning the full
+// width even while closed.
+const cartFullWidth = pathname === "/information";
 ---
 
 <nav
@@ -88,25 +93,37 @@ const shopActive = isActive("/shop");
                         </a>
                     </div>
                 )}
-                <div
-
+                {/* Desktop: a static "Filters" label sitting beside the radio
+                    row. Mobile: the full-width toggle that opens/closes the
+                    filter panel, with a +/- affordance on the right. */}
+                <button
+                    id="filters-toggle"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="exp-filters"
                     data-nav-key="filters-label"
                     data-nav-state="static"
-
-                    class="cart-dim col-span-3 bg-black text-grey flex items-center w-full px-1.5 py-1.5 rounded-xs h-8"
+                    class="cart-dim col-span-3 max-md:col-span-12 bg-black text-grey flex items-center max-md:justify-between w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem]"
                 >
-                    Filters
-                </div>
+                    <span>Filters</span>
+                    <span id="filters-toggle-sign" class="md:hidden" aria-hidden="true">
+                        +
+                    </span>
+                </button>
+                {/* Desktop: an inline row of radios inside the nav. Mobile: a
+                    panel that opens above the toggle — lifted out of the grid
+                    and parked on the nav's top edge (see the style block) so its
+                    translucent fill blurs page content, not the nav's white. */}
                 <fieldset
                     id="exp-filters"
 
                     data-nav-key="filters"
                     data-nav-state="static"
                     data-flicker-step="0.22"
-                    class="cart-dim col-span-8 bg-black text-grey flex items-center justify-between w-full px-2 py-1.5 rounded-xs h-8"
+                    class="cart-dim col-span-8 bg-black text-grey flex items-center justify-between w-full px-2 py-1.5 rounded-xs h-8 max-md:h-auto max-md:flex-col max-md:items-stretch max-md:gap-[0.9375rem] max-md:px-2.5 max-md:py-[0.9375rem] max-md:bg-[#E0E0E0]/60 max-md:text-black max-md:backdrop-blur-[4px]"
                 >
                     {filters.map((label, i) => (
-                        <label class="group flex items-center gap-1 cursor-pointer select-none">
+                        <label class="group flex items-center gap-1 cursor-pointer select-none max-md:w-full max-md:flex-row-reverse max-md:justify-between">
                             <input
                                 type="radio"
                                 name="exp-filter"
@@ -125,7 +142,7 @@ const shopActive = isActive("/shop");
                     type="button"
                     data-nav-key="reset"
                     data-nav-state="static"
-                    class="cart-dim col-span-1 bg-black text-grey flex items-center justify-start w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors hover:bg-grey hover:text-black"
+                    class="cart-dim col-span-1 max-md:hidden bg-black text-grey flex items-center justify-start w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors hover:bg-grey hover:text-black"
                 >
                     Reset
                 </button>
@@ -146,7 +163,11 @@ const shopActive = isActive("/shop");
                     }
                     aria-current={p.slug === currentSlug ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-4 flex items-center justify-start w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors",
+                        "cart-dim col-span-4 flex items-center justify-start w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors",
+                        // On the shop index under `md`, each card labels itself
+                        // with its name and price, so this row is redundant.
+                        // Product pages keep it as the way between products.
+                        currentSlug === null && "max-md:hidden",
                         currentSlug === null || p.slug === currentSlug
                             ? "bg-black text-grey"
                             : "bg-grey text-black",
@@ -178,7 +199,10 @@ const shopActive = isActive("/shop");
                         c.slug === currentArchiveSlug ? "page" : undefined
                     }
                     class:list={[
-                        "cart-dim col-span-4 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors",
+                        "cart-dim col-span-4 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors",
+                        // Mirrors the shop row: hidden on the archive index
+                        // under `md`, where the cards carry their own titles.
+                        currentArchiveSlug === null && "max-md:hidden",
                         currentArchiveSlug === null ||
                         c.slug === currentArchiveSlug
                             ? "bg-black text-grey"
@@ -204,7 +228,7 @@ const shopActive = isActive("/shop");
                     data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "col-start-1 col-span-3 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors hover:bg-black hover:text-grey",
+                        "col-start-1 col-span-3 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -214,7 +238,8 @@ const shopActive = isActive("/shop");
                         type="button"
                         aria-label="Toggle cart"
                         class:list={[
-                            "group hidden h-7 px-1.5 -mr-1 gap-1.5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
+                            // Under `md` the cart lives in #cart-mobile instead.
+                            "group hidden max-md:!hidden h-7 px-1.5 -mr-1 gap-1.5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
                             shopActive
                                 ? "bg-grey text-black hover:bg-black hover:text-grey"
                                 : "bg-black text-grey hover:bg-grey hover:text-black",
@@ -243,7 +268,7 @@ const shopActive = isActive("/shop");
                     data-nav-state={isActive(href) ? "on" : "off"}
                     aria-current={isActive(href) ? "page" : undefined}
                     class:list={[
-                        "cart-dim col-span-3 flex w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors hover:bg-black hover:text-grey",
+                        "cart-dim col-span-3 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors hover:bg-black hover:text-grey",
                         isActive(href) ? "bg-black text-grey" : "bg-grey",
                     ]}
                 >
@@ -259,7 +284,7 @@ const shopActive = isActive("/shop");
         data-nav-state={isHome ? "on" : "off"}
         aria-label="organicblue — home"
         class:list={[
-            "cart-dim col-span-12 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 transition-colors  hover:bg-black hover:text-grey",
+            "cart-dim col-span-12 flex items-center w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] transition-colors  hover:bg-black hover:text-grey",
             isHome ? "bg-black text-grey" : "bg-grey text-black",
         ]}
     >
@@ -323,9 +348,37 @@ const shopActive = isActive("/shop");
 </div>
 
 {
-    /* Cart panel: item cards + checkout button. Fixed and positioned by JS so it
-   floats directly above the Shop button without pushing any navbar rows. Only
-   shown while the cart is open. */
+    /* Mobile cart toggle. Under `md` the cart leaves the Shop button and lives
+   here instead, parked at the top-left. Closed it matches the Shop button's
+   3-column width (measured in JS); open it animates out to full width and the
+   panel drops in underneath. Hidden above `md` and while the cart is empty. */
+}
+<div
+    id="cart-mobile"
+    data-cart-full={cartFullWidth ? "" : undefined}
+    class="md:hidden fixed top-0.5 left-0.5 z-50 hidden text-sm"
+>
+    <button
+        id="cart-mobile-btn"
+        type="button"
+        aria-label="Toggle cart"
+        class="flex items-center justify-between w-full rounded-xs bg-black text-grey h-11 px-2.5 py-[0.9375rem]"
+    >
+        <span id="cart-mobile-label">Cart</span>
+        <span
+            id="cart-mobile-num"
+            class="flex items-center justify-center rounded-xs bg-grey text-black leading-none"
+        >
+            0
+        </span>
+    </button>
+</div>
+
+{
+    /* Cart panel: item cards + checkout button. On desktop it's fixed and
+   positioned by JS above the Shop button, so it floats without pushing any
+   navbar rows. Under `md` it's moved inside #cart-mobile and laid out in flow,
+   which lines its cards up with the toggle for free. Only shown while open. */
 }
 <div
     id="cart-panel"
@@ -349,13 +402,142 @@ const shopActive = isActive("/shop");
         backdrop-filter: blur(4px);
         pointer-events: none;
     }
+
+    /* ── Mobile filter panel ──────────────────────────────────────────────
+       Under `md` the radio row becomes a panel above the Filters toggle,
+       collapsed until the toggle sets `is-open`. It's absolutely positioned
+       against the fixed nav rather than sitting in the grid: the nav's own
+       background is opaque white, so an in-flow panel would have nothing to
+       blur. Parked on the nav's outer top edge, it overlays page content
+       instead — and opening it no longer reflows the nav rows. Insets match
+       the nav's px-0.5 so it lines up with the buttons below. */
+    @media (width < 48rem) {
+        #exp-filters {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 0.125rem;
+            right: 0.125rem;
+            width: auto;
+        }
+        #exp-filters.is-open {
+            display: flex;
+        }
+        /* Against the light panel the radios invert: a 1px --color-black ring,
+           filled solid when selected. */
+        #exp-filters input[type="radio"] {
+            background: transparent;
+            border: 1px solid var(--color-black);
+        }
+        #exp-filters input[type="radio"]:checked {
+            background: var(--color-black);
+        }
+    }
+
+    /* The mobile cart toggle's width is driven by JS (Shop-button width when
+       closed, full width when open) — animate between the two. */
+    #cart-mobile {
+        transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Under `md` the panel lives inside #cart-mobile, so it drops out of fixed
+       positioning and just fills the container — inheriting its left/right
+       insets and its animated width. `gap-0.5` between the toggle and the panel
+       matches the gap the panel keeps between its own cards. */
+    @media (width < 48rem) {
+        #cart-panel {
+            position: static;
+            width: auto;
+            margin-top: 0.125rem;
+        }
+    }
+
+    /* The count square: a 0.875rem text line plus 2.5px top/bottom padding
+       (border-box, so that's the height), squared off by the ratio. Sizing it
+       explicitly rather than with `aspect-square` — as an auto-width flex item
+       the ratio would otherwise resolve off the glyph width, not the height. */
+    #cart-mobile-num {
+        padding-block: 0.15625rem;
+        height: 1.1875rem;
+        aspect-ratio: 1;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        #cart-mobile {
+            transition: none;
+        }
+    }
 </style>
 
 <script>
+    import { gsap } from "gsap";
+
     // Broadcast filter changes so the explorations WebScene can react.
     document.addEventListener("astro:page-load", () => {
         const fieldset = document.getElementById("exp-filters");
         if (!fieldset) return;
+
+        // Mobile: the "Filters" row toggles the panel open/closed, and its
+        // trailing sign tracks that state. Above `md` the panel is always shown
+        // and the sign is hidden, so the toggle is inert there.
+        const toggle = document.getElementById("filters-toggle");
+        const sign = document.getElementById("filters-toggle-sign");
+
+        // Rows cascade in with the same language as the product spec panel
+        // (textReveal.ts): a short fade per row, staggered top-to-bottom.
+        const REVEAL_DUR = 0.3;
+        const REVEAL_STEP = 0.04;
+        const REVEAL_DELAY = 0.1;
+
+        const rows = () =>
+            Array.from(fieldset.querySelectorAll<HTMLElement>("label"));
+        const reducedMotion = () =>
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        const setOpen = (open: boolean) => {
+            toggle?.setAttribute("aria-expanded", String(open));
+            if (sign) sign.textContent = open ? "−" : "+";
+
+            const labels = rows();
+            gsap.killTweensOf(labels);
+
+            if (reducedMotion()) {
+                labels.forEach((row) => (row.style.opacity = ""));
+                fieldset.classList.toggle("is-open", open);
+                return;
+            }
+
+            if (open) {
+                fieldset.classList.add("is-open");
+                gsap.fromTo(
+                    labels,
+                    { opacity: 0 },
+                    {
+                        opacity: 1,
+                        duration: REVEAL_DUR,
+                        delay: REVEAL_DELAY,
+                        stagger: REVEAL_STEP,
+                        onComplete: () =>
+                            labels.forEach((row) => (row.style.opacity = "")),
+                    },
+                );
+                return;
+            }
+
+            // Closing runs the cascade backwards, then collapses the panel.
+            gsap.to(labels, {
+                opacity: 0,
+                duration: 0.2,
+                stagger: { each: REVEAL_STEP, from: "end" },
+                onComplete: () => {
+                    fieldset.classList.remove("is-open");
+                    labels.forEach((row) => (row.style.opacity = ""));
+                },
+            });
+        };
+
+        toggle?.addEventListener("click", () =>
+            setOpen(!fieldset.classList.contains("is-open")),
+        );
 
         fieldset.addEventListener("change", (e) => {
             const target = e.target as HTMLInputElement;
@@ -408,7 +590,13 @@ const shopActive = isActive("/shop");
 
     const STORAGE_KEY = "ob-cart";
     const GAP = 2; // px, matches the nav's gap-0.5
+    const MOBILE_INSET = 2; // px, matches #cart-mobile's top-0.5/left-0.5
+    const EXPAND_MS = 0; // matches #cart-mobile's width transition
     let cartOpen = false;
+    let expandTimer: number | null = null;
+
+    const prefersReducedMotion = () =>
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const readCart = (): CartItem[] => {
         try {
@@ -467,10 +655,27 @@ const shopActive = isActive("/shop");
         render();
     };
 
+    // Reveal the panel and blink its cards/checkout in with the shared flicker
+    // language. render() rebuilds them each time, so this catches whatever is
+    // currently shown.
+    const revealPanel = (panel: HTMLElement) => {
+        panel.classList.remove("hidden");
+        panel.classList.add("flex");
+        flicker(panel.children, { step: 0.07 });
+    };
+
     const setOpen = (open: boolean) => {
         const panel = document.getElementById("cart-panel");
 
+        // A pending mobile reveal is stale the moment the state changes again.
+        if (expandTimer !== null) {
+            clearTimeout(expandTimer);
+            expandTimer = null;
+        }
+
         // Closing: blink the cards/checkout out first, then tear the panel down.
+        // The toggle's shrink runs off render(), so the items clear before the
+        // button collapses — the open sequence in reverse.
         if (!open && panel && panel.children.length > 0) {
             flickerOut(Array.from(panel.children), () => {
                 cartOpen = false;
@@ -479,12 +684,26 @@ const shopActive = isActive("/shop");
             return;
         }
 
+        const wasOpen = cartOpen;
         cartOpen = open;
         render();
-        // Opening: blink the cart in with the shared flicker language. The panel
-        // + its cards/checkout are built fresh by render() each time, so this
-        // catches whatever is currently shown.
-        if (open && panel) flicker(panel.children, { step: 0.07 });
+        if (!open || !panel) return;
+
+        // Under `md`, opening from closed widens the toggle first — hold the
+        // panel back until that lands so the two read as one sequence rather
+        // than the cards stretching along with the button. Adding to an already
+        // open cart isn't animating any width, so it reveals immediately.
+        if (wasOpen || !isMobile() || prefersReducedMotion()) {
+            revealPanel(panel);
+            return;
+        }
+
+        panel.classList.add("hidden");
+        panel.classList.remove("flex");
+        expandTimer = window.setTimeout(() => {
+            expandTimer = null;
+            revealPanel(panel);
+        }, EXPAND_MS);
     };
 
     // Build one cart item card matching the spec: 3-col grid, image / title +
@@ -492,7 +711,7 @@ const shopActive = isActive("/shop");
     const buildCard = (item: CartItem) => {
         const card = document.createElement("div");
         card.className =
-            "cart-item w-full grid grid-cols-3 gap-1.5 items-start p-1.5 rounded-xs bg-black text-grey";
+            "cart-item w-full grid grid-cols-3 gap-1.5 max-md:gap-2.5 items-start p-1.5 max-md:p-2.5 rounded-xs bg-black text-grey";
 
         const imgCol = document.createElement("div");
         if (item.image) {
@@ -537,7 +756,7 @@ const shopActive = isActive("/shop");
         btn.id = "cart-checkout";
         btn.type = "button";
         btn.className =
-            "flex items-center justify-between w-full px-1.5 py-1.5 rounded-xs h-8 bg-black text-grey transition-colors hover:bg-grey hover:text-black";
+            "flex items-center justify-between w-full px-1.5 py-1.5 rounded-xs h-8 max-md:h-11 max-md:px-2.5 max-md:py-[0.9375rem] bg-black text-grey transition-colors hover:bg-grey hover:text-black";
         const label = document.createElement("span");
         label.textContent = "Checkout";
         const totalEl = document.createElement("span");
@@ -560,16 +779,86 @@ const shopActive = isActive("/shop");
         return btn;
     };
 
+    // Under `md` the cart is the fixed toggle at the top-left, not the badge in
+    // the Shop button.
+    const isMobile = () => window.matchMedia("(width < 48rem)").matches;
+
+    // Size + label the mobile toggle. Closed it matches the Shop button so it
+    // reads as the same 3-column tile; open it stretches to the full width its
+    // top-0.5/left-0.5 inset allows, and the CSS width transition animates it.
+    const syncMobileCart = (totalQty: number) => {
+        const cartMobile = document.getElementById("cart-mobile");
+        const shopNav = document.getElementById("shop-nav");
+        if (!cartMobile || !shopNav) return;
+
+        const openWidth = `${document.documentElement.clientWidth - MOBILE_INSET * 2}px`;
+        // On /information the toggle is full width in both states.
+        const closedWidth =
+            cartMobile.dataset.cartFull !== undefined
+                ? openWidth
+                : `${shopNav.getBoundingClientRect().width}px`;
+
+        // Adding to an empty cart un-hides the toggle and opens it in the same
+        // pass. A width set on an element that wasn't rendered a moment ago has
+        // nothing to transition from, so paint it closed and flush layout first
+        // — otherwise it would snap straight to full width.
+        const wasHidden = cartMobile.classList.contains("hidden");
+        cartMobile.classList.toggle("hidden", totalQty === 0);
+        if (wasHidden && totalQty > 0 && cartOpen) {
+            cartMobile.style.width = closedWidth;
+            void cartMobile.offsetWidth;
+        }
+
+        cartMobile.style.width = cartOpen ? openWidth : closedWidth;
+
+        // The panel rides inside the toggle's container under `md` (in flow,
+        // so it picks up the insets and animated width) and floats free of it
+        // on desktop.
+        const panel = document.getElementById("cart-panel");
+        const host = isMobile() ? cartMobile : document.body;
+        if (panel && panel.parentElement !== host) host.appendChild(panel);
+
+        const label = document.getElementById("cart-mobile-label");
+        const num = document.getElementById("cart-mobile-num");
+        if (label) label.textContent = cartOpen ? "Close" : "Cart";
+        if (num) num.textContent = cartOpen ? "✕" : String(totalQty);
+
+        // Most pages let the toggle float over their content, but the
+        // information page stacks beneath it. Publish the space it occupies
+        // (its height plus one gap, or zero while empty) for those layouts.
+        document.documentElement.style.setProperty(
+            "--cart-h",
+            totalQty === 0 ? "0px" : `${cartMobile.offsetHeight + MOBILE_INSET}px`,
+        );
+    };
+
     // Float the panel directly above the Shop button: same left/width, its
     // bottom edge one gap above the button's top. Fixed positioning means it
     // never pushes the navbar rows around.
+    //
+    // Under `md` none of this applies — the panel is reparented into
+    // #cart-mobile and laid out in flow — so the inline offsets are cleared
+    // instead, letting the stylesheet take over. Unlike the desktop path this
+    // has to run even while closed, so a stale offset can't survive a resize
+    // across the breakpoint.
     const positionPanel = () => {
         const panel = document.getElementById("cart-panel");
+        if (!panel) return;
+
+        if (isMobile()) {
+            panel.style.left = "";
+            panel.style.width = "";
+            panel.style.top = "";
+            panel.style.bottom = "";
+            return;
+        }
+
         const shopNav = document.getElementById("shop-nav");
-        if (!panel || !shopNav || !cartOpen) return;
+        if (!shopNav || !cartOpen) return;
         const rect = shopNav.getBoundingClientRect();
         panel.style.left = `${rect.left}px`;
         panel.style.width = `${rect.width}px`;
+        panel.style.top = "";
         panel.style.bottom = `${window.innerHeight - rect.top + GAP}px`;
     };
 
@@ -604,13 +893,21 @@ const shopActive = isActive("/shop");
         count.classList.toggle("aspect-square", cartOpen);
         count.classList.toggle("px-1", !cartOpen);
 
+        // Under `md` the Shop button is only ever a link to /shop — the cart
+        // toggle lives in #cart-mobile — so none of the swaps below apply, and
+        // it joins the rest of the nav under the dimming veil instead.
+        const mobile = isMobile();
+        shopNav.classList.toggle("cart-dim", mobile);
+
         // While open the Shop button acts as a cart toggle, not a link — drop its
         // href so the browser doesn't show a /shop hover preview over the button.
-        if (cartOpen) shopNav.removeAttribute("href");
+        if (cartOpen && !mobile) shopNav.removeAttribute("href");
         else shopNav.setAttribute("href", "/shop");
         count.classList.toggle("hidden", totalQty === 0);
         count.classList.toggle("inline-flex", totalQty > 0);
-        shopNav.classList.toggle("justify-between", totalQty > 0);
+        shopNav.classList.toggle("justify-between", totalQty > 0 && !mobile);
+
+        syncMobileCart(totalQty);
 
         // Panel contents (item cards + checkout), only built while open.
         panel.replaceChildren();
@@ -620,7 +917,7 @@ const shopActive = isActive("/shop");
         }
 
         // Open state: reveal panel + overlay, dim the rest, swap label to "Cart".
-        label.textContent = cartOpen ? "Cart" : "Shop";
+        label.textContent = cartOpen && !mobile ? "Cart" : "Shop";
         nav.classList.toggle("cart-open", cartOpen);
         overlay.classList.toggle("hidden", !cartOpen);
         panel.classList.toggle("hidden", !cartOpen);
@@ -658,11 +955,17 @@ const shopActive = isActive("/shop");
             setOpen(!cartOpen);
         });
 
+        // The mobile toggle at the top-left does the same job under `md`.
+        document
+            .getElementById("cart-mobile-btn")
+            ?.addEventListener("click", () => setOpen(!cartOpen));
+
         // While the cart is open the Shop button reads "Cart", so it shouldn't
         // navigate to /shop — clicking it (anywhere but the ✕, which handles its
-        // own click above) just closes the cart.
+        // own click above) just closes the cart. Under `md` it stays a plain
+        // link, since the cart isn't in it.
         document.getElementById("shop-nav")?.addEventListener("click", (e) => {
-            if (!cartOpen) return;
+            if (!cartOpen || isMobile()) return;
             e.preventDefault();
             setOpen(false);
         });
@@ -675,7 +978,12 @@ const shopActive = isActive("/shop");
         render();
     };
 
-    // Keep the floating panel aligned to the Shop button as the viewport shifts.
-    window.addEventListener("resize", positionPanel);
+    // Keep the floating panel — and the mobile toggle, whose closed width is
+    // measured off the Shop button — aligned as the viewport shifts.
+    window.addEventListener("resize", () => {
+        const totalQty = readCart().reduce((sum, i) => sum + i.qty, 0);
+        syncMobileCart(totalQty);
+        positionPanel();
+    });
     document.addEventListener("astro:page-load", wire);
 </script>

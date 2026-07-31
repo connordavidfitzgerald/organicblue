@@ -20,8 +20,9 @@ const { product, columns } = Astro.props;
    line-by-line via textReveal.ts (data-text-reveal), which also reveals the
    pre-hidden tile so the rows never flash before their cascade. */}
 <div
+    id="spec-panel"
     data-text-reveal
-    class="grid grid-cols-3 w-full px-1.5 py-1.5 rounded-xs h-fit bg-black"
+    class="grid grid-cols-3 w-full px-1.5 py-1.5 rounded-xs h-fit bg-black max-md:hidden max-md:p-2.5 max-md:gap-2.5"
 >
     {
         columns.map((col) => (
@@ -43,3 +44,14 @@ const { product, columns } = Astro.props;
         ))
     }
 </div>
+
+<style>
+    /* Under `md` the panel is collapsed behind the product page's Info toggle,
+       which flips `is-open`. Scoped here rather than on the page because Astro
+       scoping doesn't cross the component boundary. */
+    @media (width < 48rem) {
+        #spec-panel.is-open {
+            display: grid;
+        }
+    }
+</style>
