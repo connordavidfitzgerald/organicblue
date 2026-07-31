@@ -359,6 +359,18 @@ const cartFullWidth = pathname === "/information";
    but below the nav (which is lifted above it), so only cart UI stays crisp.
    Clicking it closes the cart. */
 }
+{
+    /* Tap-out target for the mobile filter panel: the empty area between the
+   panel's top edge and the top of the viewport. Rendered outside the nav so it
+   can sit at z-9 — under the nav (z-10) and therefore under the panel itself,
+   which is a nav child — while still covering the page content above it. */
+}
+{
+    showFilters && (
+        <div id="filters-backdrop" class="md:hidden fixed inset-0 z-[9] hidden" />
+    )
+}
+
 <div
     id="cart-overlay"
     class="fixed inset-0 z-40 hidden bg-white/50 backdrop-blur-[4px]"
@@ -565,9 +577,14 @@ const cartFullWidth = pathname === "/information";
         const reducedMotion = () =>
             window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+        // The empty area above the panel closes it when tapped. Only shown
+        // while the panel is open, so it never swallows clicks otherwise.
+        const backdrop = document.getElementById("filters-backdrop");
+
         const setOpen = (open: boolean) => {
             toggle?.setAttribute("aria-expanded", String(open));
             if (sign) sign.textContent = open ? "−" : "+";
+            backdrop?.classList.toggle("hidden", !open);
 
             const labels = rows();
             gsap.killTweensOf(labels);
@@ -610,6 +627,7 @@ const cartFullWidth = pathname === "/information";
         toggle?.addEventListener("click", () =>
             setOpen(!fieldset.classList.contains("is-open")),
         );
+        backdrop?.addEventListener("click", () => setOpen(false));
 
         fieldset.addEventListener("change", (e) => {
             const target = e.target as HTMLInputElement;

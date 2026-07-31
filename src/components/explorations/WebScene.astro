@@ -1148,7 +1148,40 @@ const images = docs.map((doc) => {
             group.rotateOnWorldAxis(_dragRight, pitch);
         }
 
+        // Touch has no scroll wheel, so pinch is the only way to dolly — and
+        // OrbitControls owns that gesture. Our rotation must stand down for it:
+        // otherwise both fingers each drive a rotation drag *while* the pinch
+        // dollies, which reads as the sphere tumbling violently as it zooms.
+        // Rotation is single-pointer only, and once a gesture has gone
+        // multi-touch it stays off until every finger lifts, so releasing one
+        // finger mid-pinch can't snap the sphere sideways.
+        const activePointers = new Set<number>();
+        let multiTouch = false;
+
+        const endOrbitDrag = (e: PointerEvent) => {
+            if (!orbitDragging) return;
+            orbitDragging = false;
+            interacting = false;
+            lastInteractionTime = Date.now();
+            try {
+                canvas.releasePointerCapture(e.pointerId);
+            } catch {
+                /* never captured, or already released */
+            }
+        };
+
         const onPointerDown = (e: PointerEvent) => {
+            activePointers.add(e.pointerId);
+            if (activePointers.size > 1) {
+                // A pinch is starting. Drop the in-flight drag and its momentum
+                // so the dolly is the only thing moving.
+                multiTouch = true;
+                panDragging = false;
+                dragVelPitch = dragVelYaw = 0;
+                endOrbitDrag(e);
+                return;
+            }
+
             pointerDown = { x: e.clientX, y: e.clientY };
             // While zoomed we drive the camera ourselves, so a drag pans the
             // surface — start tracking it here (OrbitControls is off).
@@ -1175,6 +1208,8 @@ const images = docs.map((doc) => {
         };
         const onPointerMove = (e: PointerEvent) => {
             if (zoomTweening) return;
+            // Pinch in progress — OrbitControls' dolly owns the gesture.
+            if (multiTouch || activePointers.size > 1) return;
 
             if (orbitDragging) {
                 const dx = e.clientX - lastDrag.x;
@@ -1203,17 +1238,18 @@ const images = docs.map((doc) => {
             );
         };
         const onPointerUp = (e: PointerEvent) => {
+            activePointers.delete(e.pointerId);
             panDragging = false;
-            if (orbitDragging) {
-                orbitDragging = false;
-                interacting = false;
-                lastInteractionTime = Date.now();
-                try {
-                    canvas.releasePointerCapture(e.pointerId);
-                } catch {
-                    /* never captured, or already released */
-                }
+            endOrbitDrag(e);
+
+            // The last finger of a pinch lifting is not a tap — clear the flag
+            // and bail before the click handling below, or ending a pinch over
+            // a sprite would zoom into it.
+            if (multiTouch) {
+                if (activePointers.size === 0) multiTouch = false;
+                return;
             }
+
             if (
                 Math.hypot(
                     e.clientX - pointerDown.x,
@@ -1260,6 +1296,16 @@ const images = docs.map((doc) => {
         canvas.addEventListener("pointerdown", onPointerDown);
         canvas.addEventListener("pointermove", onPointerMove);
         canvas.addEventListener("pointerup", onPointerUp);
+        // A cancelled touch (browser gesture takeover, call, etc.) never sends
+        // pointerup, which would leave the pointer set and multiTouch stuck and
+        // kill rotation for good.
+        const onPointerCancel = (e: PointerEvent) => {
+            activePointers.delete(e.pointerId);
+            panDragging = false;
+            endOrbitDrag(e);
+            if (activePointers.size === 0) multiTouch = false;
+        };
+        canvas.addEventListener("pointercancel", onPointerCancel);
 
         // ── Resize. The canvas rect is cached here (the explorations stage is a
         //    fixed full-screen element, so it only changes on resize) and reused
@@ -1658,6 +1704,7 @@ const images = docs.map((doc) => {
             canvas.removeEventListener("pointerdown", onPointerDown);
             canvas.removeEventListener("pointermove", onPointerMove);
             canvas.removeEventListener("pointerup", onPointerUp);
+            canvas.removeEventListener("pointercancel", onPointerCancel);
             // Kill any in-flight relayout tweens/delayed calls so they can't fire
             // against the disposed scene after navigation.
             gsap.killTweensOf(lineMat);

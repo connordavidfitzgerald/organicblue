@@ -1,3 +1,20 @@
+# image masters — source originals for scripts/import-to-sanity.mjs, which has
+# already pushed them into Sanity; the site fetches them back from Sanity's CDN
+# at build time and never reads these. ~1.25 GB that every deploy was cloning
+# for nothing. They stay on disk, just untracked — set IMAGES_DIR to re-point
+# the import script if you move them out of the project.
+# esrs_assets is deliberately NOT here: src/pages/shop/[product].astro globs it
+# at build time.
+src/assets/images/*.png
+src/assets/images/Archive/
+src/assets/images/environment/
+src/assets/images/esst_assets/
+src/assets/images/explorations/
+src/assets/images/on-body/
+src/assets/images/product/
+src/assets/images/prototype/
+src/assets/images/research/
+
 # build output
 dist/
 # generated types

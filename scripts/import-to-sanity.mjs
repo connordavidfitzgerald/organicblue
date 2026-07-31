@@ -40,7 +40,21 @@ const client = createClient({
 })
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const IMAGES_DIR = join(__dirname, '..', 'src', 'assets', 'images')
+
+// Where the image masters live. These are ~1.25 GB of originals that only this
+// script reads — the site itself pulls the imported copies back from Sanity's
+// CDN — so they're kept out of git (see .gitignore) to stop every Vercel deploy
+// cloning them. The default is their original in-repo location, so an existing
+// checkout keeps working untouched; point IMAGES_DIR elsewhere (external drive,
+// synced folder) if you keep the masters outside the project:
+//
+//   IMAGES_DIR=/Volumes/archive/ob-masters \
+//     node --env-file=.env scripts/import-to-sanity.mjs
+//
+// listImages() treats a missing directory as empty, so running this without the
+// masters present reports 0 rather than failing.
+const IMAGES_DIR =
+  process.env.IMAGES_DIR ?? join(__dirname, '..', 'src', 'assets', 'images')
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp'])
 
 const EXPLORATION_CATEGORIES = [
