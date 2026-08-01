@@ -929,9 +929,21 @@ const cartFullWidth = pathname === "/information";
         // Most pages let the toggle float over their content, but the
         // information page stacks beneath it. Publish the space it occupies
         // (its height plus one gap, or zero while empty) for those layouts.
+        //
+        // Measured off the button, not #cart-mobile: the container also holds
+        // the open panel, so measuring it would shove that page's content down
+        // by the full height of the cart every time it opened. The panel is an
+        // overlay — only the button reserves space. That also makes this
+        // independent of the panel's state, which matters because render()
+        // calls us *before* it hides the panel and clears its children: a
+        // container measurement taken here on close would read the still-open
+        // height and stay stuck at it, since nothing re-measures afterwards.
+        const btn = document.getElementById("cart-mobile-btn");
         document.documentElement.style.setProperty(
             "--cart-h",
-            totalQty === 0 ? "0px" : `${cartMobile.offsetHeight + MOBILE_INSET}px`,
+            totalQty === 0 || !btn
+                ? "0px"
+                : `${btn.offsetHeight + MOBILE_INSET}px`,
         );
     };
 
