@@ -1,17 +1,16 @@
-// Click-to-magnify with pan for the product-gallery images. Clicking an image
-// scales it up inside its own slide (which clips the overflow); moving the
-// pointer then pans the magnified view — the transform-origin follows the cursor
-// on desktop and the finger on touch. Clicking/tapping again resets it. Each
-// image keeps to its container, so this never becomes a full-screen lightbox.
+// Magnify-with-pan for the product-gallery images. The image scales up inside
+// its own slide (which clips the overflow) and the transform-origin follows the
+// pointer, so moving pans the magnified view. Each image keeps to its
+// container, so this never becomes a full-screen lightbox.
+//
+// One gesture for both inputs: click/tap to latch the zoom, move to pan, click/
+// tap again to release. On touch that also keeps the carousel usable — a swipe
+// travels well past MOVE_THRESHOLD, so it reads as a drag rather than a tap and
+// never zooms, and once zoomed the slide's touch-action is disabled so dragging
+// pans instead of paging.
 
 const ZOOM = 2.4; // magnification factor
 const MOVE_THRESHOLD = 6; // px of pointer travel that counts as a pan, not a click
-
-// Under `md` the gallery scrolls horizontally and a tap steps between images
-// (see the product page's wireGalleryTaps), so magnification stands down there
-// rather than competing for the same gesture. Checked per event, not once at
-// wire time, so crossing the breakpoint doesn't strand the wrong behaviour.
-const isMobile = () => window.matchMedia("(width < 48rem)").matches;
 
 function wireImage(img: HTMLElement) {
     if (img.dataset.zoomWired) return;
@@ -76,12 +75,7 @@ function wireImage(img: HTMLElement) {
     });
 
     img.addEventListener("pointerup", (e) => {
-        if (moved) return; // that was a pan drag, not a click
-        if (isMobile()) {
-            // Leave a zoom from a wider viewport behind rather than stranding it.
-            if (isZoomed()) zoomOut();
-            return;
-        }
+        if (moved) return; // that was a pan drag or a swipe, not a click
         if (isZoomed()) zoomOut();
         else zoomIn(e.clientX, e.clientY);
     });

@@ -198,52 +198,11 @@ const localGallery =
         });
     }
 
-    // Mobile-only: the gallery snaps horizontally, so swiping already moves
-    // between images. This adds the cursor equivalent — tapping either half of
-    // the image steps a slide, wrapping at both ends. Above `md` the gallery is
-    // a vertical scroller and taps belong to shopZoom, which bails out under
-    // `md` for the same reason.
-    const TAP_SLOP = 8; // px of travel that makes it a swipe, not a tap
-
-    function wireGalleryTaps() {
-        const gallery = document.querySelector<HTMLElement>(".shop-gallery");
-        if (!gallery) return;
-
-        let downX = 0;
-        let downY = 0;
-
-        gallery.addEventListener("pointerdown", (e) => {
-            downX = e.clientX;
-            downY = e.clientY;
-        });
-
-        gallery.addEventListener("pointerup", (e) => {
-            if (!window.matchMedia("(width < 48rem)").matches) return;
-            if (Math.hypot(e.clientX - downX, e.clientY - downY) > TAP_SLOP)
-                return;
-
-            const rect = gallery.getBoundingClientRect();
-            const forward = e.clientX - rect.left > rect.width / 2;
-            const step = gallery.clientWidth;
-            // scrollBy stalls at the ends, so wrap explicitly instead.
-            const atEnd =
-                gallery.scrollLeft + step >= gallery.scrollWidth - 1;
-            const atStart = gallery.scrollLeft <= 1;
-            const left = forward
-                ? atEnd
-                    ? 0
-                    : gallery.scrollLeft + step
-                : atStart
-                  ? gallery.scrollWidth - step
-                  : gallery.scrollLeft - step;
-            gallery.scrollTo({ left, behavior: "smooth" });
-        });
-    }
-
+    // Paging is swipe-only under `md` — the snap-scroller handles it natively.
+    // Taps belong to shopZoom's press-to-magnify instead.
     document.addEventListener("astro:page-load", () => {
         sizeStage();
         wireSpecToggle();
-        wireGalleryTaps();
     });
     window.addEventListener("resize", sizeStage);
 </script>

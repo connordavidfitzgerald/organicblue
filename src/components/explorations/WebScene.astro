@@ -242,20 +242,10 @@ const images = docs.map((doc) => {
         // re-enabled when that tween completes (see the intro tween near startLoop).
         controls.enabled = false;
 
-        // Track real user interaction (drag start/end) rather than every damped
-        // "change" frame — otherwise the coast-to-stop keeps resetting the timer
-        // and auto-rotation takes far too long to resume.
-        // Seed in the past so the idle-rotation gate (> 1200ms since the last
-        // interaction) is already open at load — the sphere spins from frame one,
-        // rotating through the intro zoom rather than waiting to spin up.
-        let lastInteractionTime = Date.now() - 2000;
-        let interacting = false;
-
-        // Wheel-zoom (dolly) should NOT pause auto-rotation — only a rotate drag
-        // should. OrbitControls fires start/end for wheel too, so mark a brief
-        // window around wheel events and skip the interaction gate inside it.
+        // Wheel gestures emit a burst of events; this marks a window around one
+        // so the burst reads as a single gesture (see the zoom-out below).
         // Capture phase on window fires before OrbitControls' own canvas-level
-        // wheel handler, so the flag is set before the start/end it dispatches.
+        // wheel handler.
         let wheeling = false;
         let wheelClear: ReturnType<typeof setTimeout> | undefined;
         const onWheel = (e: WheelEvent) => {
@@ -276,16 +266,6 @@ const images = docs.map((doc) => {
         window.addEventListener("wheel", onWheel, {
             passive: true,
             capture: true,
-        });
-
-        controls.addEventListener("start", () => {
-            if (wheeling) return;
-            interacting = true;
-        });
-        controls.addEventListener("end", () => {
-            if (wheeling) return;
-            interacting = false;
-            lastInteractionTime = Date.now();
         });
 
         // ── Zoom-to-image state. Zooming flies the camera up close to a sprite
@@ -898,7 +878,6 @@ const images = docs.map((doc) => {
             zoomTweening = true;
             zoomedSprite = sprite;
             controls.enabled = false;
-            lastInteractionTime = Date.now();
 
             loadHiRes(sprite);
 
@@ -1051,9 +1030,6 @@ const images = docs.map((doc) => {
                     zoomingOut = false;
                     zoomTweening = false;
                     controls.enabled = true;
-                    // Seed in the past so idle rotation carries straight on from
-                    // the spin the flyback already had — no 1200ms dead stop.
-                    lastInteractionTime = Date.now() - 2000;
                 },
             });
         }
@@ -1113,7 +1089,6 @@ const images = docs.map((doc) => {
                     zoomingOut = false;
                     zoomTweening = false;
                     controls.enabled = true;
-                    lastInteractionTime = Date.now() - 2000;
                 },
             });
         }
@@ -1131,10 +1106,6 @@ const images = docs.map((doc) => {
         //    group's quaternion, so there's no polar angle to clamp and the
         //    sphere tumbles end over end. autoSpin already turns the group this
         //    way, so the two compose without special-casing.
-        // Held as a MediaQueryList rather than calling matchMedia per frame —
-        // `.matches` is a cheap property read and stays live across resizes.
-        const mobileMQ = window.matchMedia("(width < 48rem)");
-
         const DRAG_K = 0.005; // radians per pixel dragged
         const DRAG_DECAY = 0.94; // per-frame coast after release
         const DRAG_EPS = 1e-4; // below this the coast has stopped
@@ -1159,14 +1130,28 @@ const images = docs.map((doc) => {
         // Rotation is single-pointer only, and once a gesture has gone
         // multi-touch it stays off until every finger lifts, so releasing one
         // finger mid-pinch can't snap the sphere sideways.
-        const activePointers = new Set<number>();
+        // Positions are tracked, not just ids, so the pinch span can be measured
+        // for the zoom-out-to-exit gesture below.
+        const activePointers = new Map<number, { x: number; y: number }>();
         let multiTouch = false;
+
+        // Pinching in while an image is framed exits it, mirroring what the
+        // wheel does on desktop. The dolly is locked in that state, so without
+        // this a pinch would do nothing at all on touch. Measured against the
+        // span at pinch start and fired once per gesture, so one pinch is one
+        // exit step rather than blowing through the inner retreat.
+        const PINCH_EXIT_RATIO = 0.85;
+        let pinchStartSpan = 0;
+        let pinchConsumed = false;
+
+        const pinchSpan = () => {
+            const [a, b] = [...activePointers.values()];
+            return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+        };
 
         const endOrbitDrag = (e: PointerEvent) => {
             if (!orbitDragging) return;
             orbitDragging = false;
-            interacting = false;
-            lastInteractionTime = Date.now();
             try {
                 canvas.releasePointerCapture(e.pointerId);
             } catch {
@@ -1175,13 +1160,15 @@ const images = docs.map((doc) => {
         };
 
         const onPointerDown = (e: PointerEvent) => {
-            activePointers.add(e.pointerId);
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
             if (activePointers.size > 1) {
                 // A pinch is starting. Drop the in-flight drag and its momentum
                 // so the dolly is the only thing moving.
                 multiTouch = true;
                 panDragging = false;
                 dragVelPitch = dragVelYaw = 0;
+                pinchStartSpan = pinchSpan();
+                pinchConsumed = false;
                 endOrbitDrag(e);
                 return;
             }
@@ -1196,7 +1183,6 @@ const images = docs.map((doc) => {
                 // Overview: grab the sphere. Kill any coast so the grab is
                 // immediate rather than fighting leftover momentum.
                 orbitDragging = true;
-                interacting = true;
                 dragVelPitch = dragVelYaw = 0;
                 lastDrag = { x: e.clientX, y: e.clientY };
                 // OrbitControls used to capture the pointer for us. Now that the
@@ -1211,9 +1197,25 @@ const images = docs.map((doc) => {
             }
         };
         const onPointerMove = (e: PointerEvent) => {
+            if (activePointers.has(e.pointerId))
+                activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
             if (zoomTweening) return;
-            // Pinch in progress — OrbitControls' dolly owns the gesture.
-            if (multiTouch || activePointers.size > 1) return;
+
+            // Pinch in progress — OrbitControls' dolly owns the gesture, except
+            // while an image is framed, where the dolly is locked and pinching
+            // in exits instead.
+            if (multiTouch || activePointers.size > 1) {
+                if (
+                    !pinchConsumed &&
+                    zoomed &&
+                    pinchStartSpan > 0 &&
+                    pinchSpan() < pinchStartSpan * PINCH_EXIT_RATIO
+                ) {
+                    pinchConsumed = true;
+                    zoomOut();
+                }
+                return;
+            }
 
             if (orbitDragging) {
                 const dx = e.clientX - lastDrag.x;
@@ -1591,22 +1593,11 @@ const images = docs.map((doc) => {
                         dragVelYaw *= DRAG_DECAY;
                     }
 
-                    // Ambient spin. On touch it never stops: there's no hover
-                    // state there to signal the sphere is interactive, so the
-                    // motion has to do it — and because both the drag and the
-                    // spin turn the same group, they simply compose rather than
-                    // fighting. Pointer-driven viewports keep the original
-                    // behaviour, where the spin yields while you're working and
-                    // resumes a beat after you stop.
-                    if (
-                        mobileMQ.matches ||
-                        (!orbitDragging &&
-                            !coasting &&
-                            !interacting &&
-                            Date.now() - lastInteractionTime > 500)
-                    ) {
-                        autoSpin();
-                    }
+                    // Ambient spin — never pauses. Dragging composes with it
+                    // rather than interrupting it: both turn the same group, so
+                    // a drag just adds to the motion already underway and the
+                    // sphere is still turning when you let go.
+                    autoSpin();
                 }
 
                 // Track the featured-product bar under the focused image.
