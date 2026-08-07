@@ -56,6 +56,17 @@ html {
     font-size: clamp(0.75rem, 0.3056rem + 0.5556vw, 1rem);
 }
 
+/* Under `md` the ramp above would sit on its 0.75rem floor for every phone,
+   which reads a touch small once the layout switches to its mobile variants.
+   Nudge the root up so the type and the h-10 rows come with it. Same value the
+   inline script in Layout.astro applies (14px at a default 16px browser size)
+   — rem here so a reader who has raised that default keeps the increase. */
+@media (width < 48rem) {
+    html {
+        font-size: 0.875rem;
+    }
+}
+
 @utility spacing-padding {
     padding-left: 1rem;
     padding-right: 1rem;

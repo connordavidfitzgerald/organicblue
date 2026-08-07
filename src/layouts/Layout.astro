@@ -40,6 +40,16 @@ const { title = "Organic Blue", isHome = false } = Astro.props;
         <script is:inline>
             (function () {
                 function applyRootScale() {
+                    // Under `md` the layout switches to its mobile variants,
+                    // where the ramp below bottoms out at its 12px floor and
+                    // leaves the type and tap targets smaller than a phone
+                    // wants. Give that range its own slightly larger root.
+                    // Keyed off the *viewport*, not the display, so it turns
+                    // over at the same 768px the max-md: variants do.
+                    if (window.innerWidth < 768) {
+                        document.documentElement.style.fontSize = "14px";
+                        return;
+                    }
                     var w =
                         (window.screen && window.screen.width) ||
                         window.innerWidth;
