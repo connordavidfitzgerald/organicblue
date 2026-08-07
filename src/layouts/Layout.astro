@@ -60,10 +60,22 @@ const { title = "Organic Blue", isHome = false } = Astro.props;
                 }
                 applyRootScale();
                 // Catches a resolution change or a drag to a second monitor.
-                // Registered once here; the listener and the inline style both
-                // outlive ClientRouter navigations (<html> is never swapped),
-                // so this does not need re-running on astro:page-load.
+                // Registered on window, so it outlives ClientRouter navigations
+                // and only needs binding once.
                 addEventListener("resize", applyRootScale);
+                // The inline style, however, does NOT survive a navigation.
+                // ClientRouter's swapRootAttributes strips every attribute off
+                // <html> and re-applies only those the incoming document
+                // carries — and that document has no style attribute, since
+                // the size is set here at runtime. This script isn't re-run
+                // either: it's byte-identical across pages, so the swap keeps
+                // it as a persisted head element rather than executing it
+                // again. Left alone, the first navigation drops the root to
+                // the vw-based clamp() fallback in global.css, visibly
+                // shrinking the navbar on any display where the two ramps
+                // disagree — i.e. whenever the window is narrower than the
+                // screen. Re-apply on each swap, which lands before paint.
+                document.addEventListener("astro:after-swap", applyRootScale);
             })();
 
             document.documentElement.classList.add("nav-boot");
