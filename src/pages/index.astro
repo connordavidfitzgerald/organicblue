@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import CurrencySelect from "../components/CurrencySelect.astro";
 ---
 
 <Layout title="Organic Blue" isHome={true}>
@@ -14,6 +15,8 @@ import Layout from "../layouts/Layout.astro";
             class="block w-full h-full"
             style="--media-object-fit: cover; --controls: none;"></mux-player>
     </div>
+
+    <CurrencySelect />
 
     {/* Intro overlay — shown only during `home-intro` (initial hard load of the
        homepage). Clicking anywhere reveals the navbar and unblurs the video

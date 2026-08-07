@@ -1,10 +1,19 @@
 ---
 import { getProducts } from "../lib/products";
 import { getArchiveCollections } from "../lib/sanity";
+import { getMarkets } from "../lib/markets";
 import { storeDomain } from "../lib/shopify";
 
 const products = await getProducts();
 const collections = await getArchiveCollections();
+
+// Every market's prices, baked at build time. The navbar is on every page, so
+// this is where the table lives; src/scripts/currency.ts is the only reader.
+const markets = await getMarkets();
+const pricePayload = JSON.stringify({
+    default: markets.defaultCountry,
+    prices: markets.prices,
+});
 
 const pathname = Astro.url.pathname.replace(/\/$/, "") || "/";
 
@@ -240,7 +249,7 @@ const cartFullWidth = pathname === "/information";
                         aria-label="Toggle cart"
                         class:list={[
                             // Under `md` the cart lives in #cart-mobile instead.
-                            "group hidden max-md:!hidden h-7 px-1.5 -mr-1 gap-1.5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
+                            "group hidden max-md:!hidden h-7 px-1.5 -mr-1 gap-5 items-center justify-center rounded-xs text-xs leading-none transition-colors",
                             shopActive
                                 ? "bg-grey text-black hover:bg-black hover:text-grey"
                                 : "bg-black text-grey hover:bg-grey hover:text-black",
@@ -416,6 +425,13 @@ const cartFullWidth = pathname === "/information";
     class="fixed z-50 hidden flex-col gap-0.5 text-xs text-grey"
 >
 </div>
+
+{
+    /* Build-time price table: slug -> country -> { amount, currency }, plus the
+   store's own market as the default. Read by src/scripts/currency.ts. */
+}
+<script type="application/json" id="ob-prices" is:inline set:html={pricePayload}
+></script>
 
 <style>
     /* While the cart is open, every non-cart nav element gets a matching
@@ -662,6 +678,7 @@ const cartFullWidth = pathname === "/information";
 
 <script>
     import { flicker, flickerOut } from "../scripts/flicker";
+    import { currentCountry, formatAmount, priceFor } from "../scripts/currency";
 
     // ---- Cart ---------------------------------------------------------------
     // Client-side cart persisted in localStorage. The navbar is re-rendered per
@@ -710,7 +727,16 @@ const cartFullWidth = pathname === "/information";
     };
 
     const formatMoney = (amount: number, currency: string) =>
-        `${Math.round(amount)}${currency ? " " + currency : ""}`;
+        `${formatAmount(amount)}${currency ? " " + currency : ""}`;
+
+    // A line's price in the currently selected market. The amount stored on the
+    // item is only the fallback: it was captured in whatever market was current
+    // when the item went in, and the visitor may have switched since.
+    const linePrice = (item: CartItem) =>
+        priceFor(item.slug) ?? {
+            amount: item.priceAmount,
+            currency: item.priceCurrency,
+        };
 
     const addToCart = (data: {
         slug: string;
@@ -822,11 +848,9 @@ const cartFullWidth = pathname === "/information";
 
         const priceCol = document.createElement("div");
         priceCol.className = "flex flex-col items-end text-right";
+        const price = linePrice(item);
         const priceEl = document.createElement("p");
-        priceEl.textContent = formatMoney(
-            item.priceAmount * item.qty,
-            item.priceCurrency,
-        );
+        priceEl.textContent = formatMoney(price.amount * item.qty, price.currency);
         const removeEl = document.createElement("button");
         removeEl.type = "button";
         removeEl.className =
@@ -840,8 +864,11 @@ const cartFullWidth = pathname === "/information";
     };
 
     const buildCheckout = (items: CartItem[]) => {
-        const currency = items[0]?.priceCurrency ?? "";
-        const total = items.reduce((sum, i) => sum + i.priceAmount * i.qty, 0);
+        const currency = items[0] ? linePrice(items[0]).currency : "";
+        const total = items.reduce(
+            (sum, i) => sum + linePrice(i).amount * i.qty,
+            0,
+        );
         const btn = document.createElement("button");
         btn.id = "cart-checkout";
         btn.type = "button";
@@ -856,6 +883,8 @@ const cartFullWidth = pathname === "/information";
         // Hand off to Shopify's hosted checkout via a cart permalink:
         //   https://{store}/cart/{variantId}:{qty},{variantId}:{qty}
         // which loads a fresh cart with these lines and lands on checkout.
+        // `?country=` carries the selected market across, so checkout opens in
+        // the currency shown here instead of geolocating the buyer.
         btn.addEventListener("click", () => {
             const domain =
                 document.getElementById("cart-panel")?.dataset.shopDomain;
@@ -864,14 +893,15 @@ const cartFullWidth = pathname === "/information";
                 .map((i) => `${i.variantId}:${i.qty}`)
                 .join(",");
             if (!domain || !lines) return;
-            window.location.href = `https://${domain}/cart/${lines}`;
+            window.location.href = `https://${domain}/cart/${lines}?country=${currentCountry()}`;
         });
         return btn;
     };
 
     // Under `md` the cart is the fixed toggle at the top-left, not the badge in
     // the Shop button.
-    const isMobile = () => window.matchMedia("(width < 48rem)").matches;
+    const mobileMQ = window.matchMedia("(width < 48rem)");
+    const isMobile = () => mobileMQ.matches;
 
     // Size + label the mobile toggle. Closed it matches whichever three-column
     // tile is on screen so it reads as one of them; open it stretches to the
@@ -1100,5 +1130,24 @@ const cartFullWidth = pathname === "/information";
         syncMobileCart(totalQty);
         positionPanel();
     });
+
+    // Crossing the breakpoint flips several things only render() decides from
+    // `mobile` — the Shop button's dim class, its href, its justify-between and
+    // its label. resize doesn't re-run render(), so they stayed at whatever the
+    // last cart interaction left them: most visibly the count badge sitting
+    // against the "Shop" label instead of being pushed to the far edge, because
+    // justify-between is dropped on mobile and never restored.
+    //
+    // matchMedia fires once per crossing rather than on every resize frame, so
+    // this re-syncs without rebuilding the cart panel throughout a drag-resize.
+    mobileMQ.addEventListener("change", () => render());
+
+    // Switching markets re-prices the open cart (cards + checkout total). While
+    // closed there is nothing on screen carrying a price, so the next render
+    // picks it up on its own.
+    window.addEventListener("currency:change", () => {
+        if (cartOpen) render();
+    });
+
     document.addEventListener("astro:page-load", wire);
 </script>

@@ -8,6 +8,15 @@
     font-display: swap;
 }
 
+/* Medium — used for the labels in the explorations info overlay. */
+@font-face {
+    font-family: "Octave";
+    src: url("../assets/fonts/Octave-Medium.otf") format("opentype");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
 @theme inline {
     --font-sans: "Octave", ui-sans-serif, system-ui, sans-serif;
     --color-grey: #ececec;
@@ -92,6 +101,15 @@ html.home-intro #navbar {
 html.home-intro #cart-mobile {
     transform: translateY(calc(-100% - 0.125rem));
 }
+/* Same story for the currency switcher in the opposite corner: it sits outside
+   the navbar, so it gets its own tuck off the top edge and slides in with the
+   navbar on the first click. */
+#currency-select {
+    transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html.home-intro #currency-select {
+    transform: translateY(calc(-100% - 0.125rem));
+}
 #home-video {
     transition:
         filter 0.8s ease,
@@ -112,6 +130,7 @@ html.home-intro #home-intro {
 }
 @media (prefers-reduced-motion: reduce) {
     #navbar,
+    #currency-select,
     #home-intro,
     #home-video {
         transition: none;

@@ -1,0 +1,329 @@
+---
+// Homepage currency switcher — parked in the top-right corner over the video.
+// Plain white text (no tile), so it reads as a caption rather than a nav
+// element: "Canada (CAD $)" plus a small caret. Clicking it drops a list of the
+// *other* markets, scroll-capped at four rows.
+//
+// Everything is left-aligned against the panel's left edge, with the caret
+// pinned to the right — so opening widens the whole component (rightwards
+// anchored, growing leftwards) until the longest country name fits while
+// keeping the 40px gap to the caret. That width is measured in the script.
+//
+// The list is every country configured in Shopify Markets, so a market can
+// never be offered here without a price behind it. The choice is persisted in
+// localStorage as a country code and broadcast as `currency:change`;
+// src/scripts/currency.ts re-prices the site from it.
+import { getMarkets, type Market } from "../lib/markets";
+
+const { countries, defaultCountry } = await getMarkets();
+
+const label = (c: Market) => `${c.name} (${c.currency} ${c.symbol})`;
+const fallback =
+    countries.find((c) => c.iso === defaultCountry) ?? countries[0];
+---
+
+<div
+    id="currency-select"
+    data-default={defaultCountry}
+    class="fixed top-0.5 right-0.5 z-40 text-white select-none"
+>
+    <button
+        id="currency-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="currency-menu"
+        aria-label="Change currency"
+        class="currency-row flex w-full cursor-pointer items-center justify-between gap-10 transition-opacity hover:opacity-60"
+    >
+        <span id="currency-current" class="whitespace-nowrap"
+            >{label(fallback)}</span
+        >
+        {/* Small downward triangle — the dropdown affordance. */}
+        <svg
+            id="currency-caret"
+            viewBox="0 0 8 5"
+            fill="currentColor"
+            aria-hidden="true"
+            class="h-[0.3125rem] w-2 shrink-0 transition-transform"
+        >
+            <path d="M0 0 H8 L4 5 Z"></path>
+        </svg>
+    </button>
+
+    {
+        /* The list, plus its own hairline scrollbar in the caret's column.
+       Capped at four rows tall and scrolled beyond that. */
+    }
+    <div id="currency-panel" class="absolute inset-x-0 top-full hidden">
+        <ul
+            id="currency-menu"
+            role="listbox"
+            aria-label="Currency"
+            class="flex max-h-24 flex-col overflow-y-auto"
+        >
+            {
+                countries.map((c) => (
+                    <li>
+                        <button
+                            type="button"
+                            role="option"
+                            aria-selected={c.iso === defaultCountry}
+                            data-code={c.iso}
+                            data-country={c.name}
+                            data-currency={c.currency}
+                            data-symbol={c.symbol}
+                            class="currency-option flex h-6 w-full cursor-pointer items-center whitespace-nowrap transition-opacity hover:opacity-60"
+                        >
+                            {label(c)}
+                        </button>
+                    </li>
+                ))
+            }
+        </ul>
+        {/* Scroll track: a 1px rule running under the caret, on its centre
+           line, with a caret-wide tick riding it. */}
+        <div id="currency-track" class="absolute inset-y-0 hidden w-px">
+            <div id="currency-thumb" class="absolute h-px"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* One place to tune the geometry:
+         --edge  — inset from the viewport corner (matches the navbar's tiles)
+         --gap   — space between the label and the caret (40px)
+         --caret — caret width, shared by the menu's right gutter and the
+                   scroll indicator */
+    #currency-select {
+        --edge: 0.375rem;
+        --gap: 2.5rem;
+        --caret: 0.5rem;
+        /* 10–11px: a step down from the navbar's 14px. */
+        font-size: 0.6875rem;
+        line-height: 1;
+        /* Width is measured in the script — closed it hugs the current label,
+           open it stretches to the longest one. */
+        transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @media (width < 48rem) {
+        #currency-select {
+            --edge: 0.625rem;
+        }
+    }
+
+    .currency-row {
+        padding: var(--edge);
+    }
+
+    /* Rows share the toggle's left edge; their right gutter reserves the gap
+       and the caret column, so no name ever runs closer than --gap to it. */
+    .currency-option {
+        padding-left: var(--edge);
+        padding-right: calc(var(--edge) + var(--gap) + var(--caret));
+    }
+
+    /* Native scrollbar off — the track below is the visible one. */
+    #currency-menu {
+        scrollbar-width: none;
+    }
+    #currency-menu::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Centre the 1px track on the caret's centre line, and the tick on the
+       track. Both are hairlines; the tick is as wide as the caret. */
+    #currency-track {
+        right: calc(var(--edge) + var(--caret) / 2 - 0.5px);
+        background: currentColor;
+        opacity: 0.4;
+    }
+    #currency-thumb {
+        width: var(--caret);
+        left: calc((1px - var(--caret)) / 2);
+        background: currentColor;
+        opacity: 1;
+    }
+
+    #currency-select.is-open #currency-caret {
+        transform: rotate(180deg);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        #currency-select,
+        #currency-caret {
+            transition: none;
+        }
+    }
+</style>
+
+<script>
+    import { flicker } from "../scripts/flicker";
+    // The selected market is shared state: the same key drives every price on
+    // the site (src/scripts/currency.ts) and the checkout hand-off.
+    import { CURRENCY_KEY as STORAGE_KEY } from "../scripts/currency";
+
+    document.addEventListener("astro:page-load", () => {
+        const root = document.getElementById("currency-select");
+        const toggle = document.getElementById("currency-toggle");
+        const current = document.getElementById("currency-current");
+        const panel = document.getElementById("currency-panel");
+        const menu = document.getElementById("currency-menu");
+        const track = document.getElementById("currency-track");
+        const thumb = document.getElementById("currency-thumb");
+        const caret = document.getElementById("currency-caret");
+        if (!root || !toggle || !current || !panel || !menu || !track || !thumb)
+            return;
+
+        const options = Array.from(
+            menu.querySelectorAll<HTMLButtonElement>(".currency-option"),
+        );
+
+        const labelOf = (el: HTMLButtonElement) =>
+            `${el.dataset.country} (${el.dataset.currency} ${el.dataset.symbol})`;
+
+        let code =
+            localStorage.getItem(STORAGE_KEY) ?? root.dataset.default ?? "";
+        if (!options.some((el) => el.dataset.code === code)) {
+            code = root.dataset.default ?? "";
+        }
+
+        // ── Width ────────────────────────────────────────────────────────
+        // Closed the component hugs the current label; open it stretches to
+        // the longest name in the list. Both are that label's width plus the
+        // fixed chrome around it (the two insets, the 40px gap and the caret),
+        // so the gap is preserved at every width. Text is measured off a
+        // hidden span inside the component, which inherits its type.
+        const ruler = document.createElement("span");
+        ruler.style.cssText =
+            "position:absolute;visibility:hidden;white-space:nowrap;pointer-events:none;left:0;top:0;";
+        root.appendChild(ruler);
+        const textWidth = (s: string) => {
+            ruler.textContent = s;
+            return ruler.getBoundingClientRect().width;
+        };
+
+        const chrome = () => {
+            const cs = getComputedStyle(toggle);
+            return (
+                parseFloat(cs.paddingLeft) +
+                parseFloat(cs.paddingRight) +
+                parseFloat(cs.columnGap || "0") +
+                (caret?.getBoundingClientRect().width ?? 0)
+            );
+        };
+
+        const isOpen = () => !panel.classList.contains("hidden");
+
+        // The open width only changes when the type does, so the whole list is
+        // measured once rather than on every toggle.
+        let widest = 0;
+        const measureWidest = () => {
+            widest = options.reduce(
+                (w, el) => Math.max(w, textWidth(labelOf(el))),
+                0,
+            );
+        };
+
+        const sizeToState = () => {
+            const label = isOpen()
+                ? widest
+                : textWidth(current.textContent ?? "");
+            // +1 guards against sub-pixel rounding clipping the last glyph.
+            root.style.width = `${Math.ceil(chrome() + label) + 1}px`;
+        };
+
+        // ── Scroll indicator ─────────────────────────────────────────────
+        // The tick rides the track in proportion to how far the list is
+        // scrolled; the track only appears when there is somewhere to scroll.
+        const syncScroll = () => {
+            const max = menu.scrollHeight - menu.clientHeight;
+            track.classList.toggle("hidden", max < 1);
+            if (max < 1) return;
+            const travel = Math.max(track.clientHeight - 1, 0);
+            thumb.style.top = `${(menu.scrollTop / max) * travel}px`;
+        };
+
+        // The current market is the toggle's label, so the list only carries
+        // the others.
+        const apply = () => {
+            options.forEach((el) => {
+                const selected = el.dataset.code === code;
+                el.setAttribute("aria-selected", String(selected));
+                (el.parentElement as HTMLElement | null)?.classList.toggle(
+                    "hidden",
+                    selected,
+                );
+                if (selected) current.textContent = labelOf(el);
+            });
+            sizeToState();
+        };
+
+        const visibleRows = () =>
+            options
+                .map((el) => el.parentElement as HTMLElement)
+                .filter((li) => li && !li.classList.contains("hidden"));
+
+        const setOpen = (open: boolean) => {
+            root.classList.toggle("is-open", open);
+            panel.classList.toggle("hidden", !open);
+            toggle.setAttribute("aria-expanded", String(open));
+            sizeToState();
+            if (!open) return;
+            menu.scrollTop = 0;
+            syncScroll();
+            flicker(visibleRows(), { sort: false, step: 0.05 });
+        };
+
+        toggle.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setOpen(!isOpen());
+        });
+
+        options.forEach((el) =>
+            el.addEventListener("click", () => {
+                code = el.dataset.code ?? code;
+                localStorage.setItem(STORAGE_KEY, code);
+                apply();
+                setOpen(false);
+                window.dispatchEvent(
+                    new CustomEvent("currency:change", {
+                        detail: {
+                            country: code,
+                            name: el.dataset.country,
+                            currency: el.dataset.currency,
+                            symbol: el.dataset.symbol,
+                        },
+                    }),
+                );
+            }),
+        );
+
+        menu.addEventListener("scroll", syncScroll);
+
+        // Clicking anywhere else — including the click-to-enter overlay —
+        // closes the list.
+        document.addEventListener("click", (e) => {
+            if (!isOpen()) return;
+            if (root.contains(e.target as Node)) return;
+            setOpen(false);
+        });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") setOpen(false);
+        });
+
+        // Octave loads async — re-measure once it lands, or the widths would be
+        // fixed to the fallback face's metrics.
+        document.fonts?.ready.then(() => {
+            measureWidest();
+            sizeToState();
+        });
+        window.addEventListener("resize", () => {
+            sizeToState();
+            syncScroll();
+        });
+
+        measureWidest();
+        apply();
+        setOpen(false);
+    });
+</script>

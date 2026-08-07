@@ -49,6 +49,11 @@ const localGallery =
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([, img]) => img)
         : [];
+
+// The scroll hint only earns its place when there is a second image to reach.
+const galleryLength =
+    product.images.length > 0 ? product.images.length : localGallery.length;
+const showScrollHint = galleryLength > 1;
 ---
 
 <Layout title={`${product.name} — Organic Blue`}>
@@ -102,58 +107,117 @@ const localGallery =
                 class="flex w-full items-center px-1.5 py-1.5 rounded-xs h-8 flex-row justify-between bg-black text-grey transition-colors hover:bg-grey hover:text-black max-md:order-1 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem]"
             >
                 <span>Add to cart</span>
-                <span>{product.price}</span>
+                {/* Re-priced per market by src/scripts/currency.ts. */}
+                <span data-price-display={product.slug}>{product.price}</span>
             </button>
             <SpecPanel product={product} columns={specColumns} />
         </div>
 
-        <!-- Column 2: gallery — Shopify images, else the local set (ES.RS),
-             else a placeholder slot. -->
-        {
-            product.images.length > 0 ? (
-                <div
-                    data-fade-in
-                    data-fade-in-duration="0.4"
-                    data-fade-in-ease="power2.inOut"
-                    class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black max-md:-order-1 max-md:h-auto max-md:grow max-md:min-h-0 max-md:flex max-md:overflow-x-auto max-md:overflow-y-hidden max-md:snap-x"
-                >
-                    {product.images.map((img, i) => (
-                        <div class="h-full w-full snap-start snap-always max-md:shrink-0">
-                            <img
-                                src={img.full}
-                                alt={img.alt}
-                                loading={i === 0 ? "eager" : "lazy"}
-                                decoding="async"
-                                class="w-full h-full object-cover rounded-xs"
-                            />
-                        </div>
-                    ))}
-                </div>
-            ) : localGallery.length > 0 ? (
-                <div
-                    data-fade-in
-                    class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black max-md:-order-1 max-md:h-auto max-md:grow max-md:min-h-0 max-md:flex max-md:overflow-x-auto max-md:overflow-y-hidden max-md:snap-x"
-                >
-                    {localGallery.map((img, i) => (
-                        <div class="h-full w-full snap-start snap-always max-md:shrink-0">
-                            <Image
-                                src={img}
-                                alt={`${product.name} view ${i + 1}`}
-                                class="w-full h-full object-cover rounded-xs"
-                            />
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div
-                    data-fade-in
-                    class="h-full w-full rounded-xs bg-grey flex items-center justify-center text-black max-md:-order-1 max-md:h-auto max-md:grow max-md:min-h-0"
-                >
-                    {product.name} image
-                </div>
-            )
-        }
-    </div>
+        {/* Column 2: gallery — Shopify images, else the local set (ES.RS),
+            else a placeholder slot. The wrapper carries the column's layout and
+            is the positioning context for the paging carets: they have to sit
+            against the image's own edges, and the scroller can't host them
+            (anything absolute inside it rides away on the first scroll). */}
+        <div class="relative h-full w-full max-md:-order-1 max-md:h-auto max-md:grow max-md:min-h-0">
+            {
+                product.images.length > 0 ? (
+                    <div
+                        data-fade-in
+                        data-fade-in-duration="0.4"
+                        data-fade-in-ease="power2.inOut"
+                        id="shop-gallery"
+                        class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black max-md:flex max-md:overflow-x-auto max-md:overflow-y-hidden max-md:snap-x"
+                    >
+                        {product.images.map((img, i) => (
+                            <div class="h-full w-full snap-start snap-always max-md:shrink-0">
+                                <img
+                                    src={img.full}
+                                    alt={img.alt}
+                                    loading={i === 0 ? "eager" : "lazy"}
+                                    decoding="async"
+                                    class="w-full h-full object-cover rounded-xs"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                ) : localGallery.length > 0 ? (
+                    <div
+                        data-fade-in
+                        id="shop-gallery"
+                        class="shop-gallery h-full w-full overflow-y-auto snap-y snap-mandatory rounded-xs bg-black max-md:flex max-md:overflow-x-auto max-md:overflow-y-hidden max-md:snap-x"
+                    >
+                        {localGallery.map((img, i) => (
+                            <div class="h-full w-full snap-start snap-always max-md:shrink-0">
+                                <Image
+                                    src={img}
+                                    alt={`${product.name} view ${i + 1}`}
+                                    class="w-full h-full object-cover rounded-xs"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div
+                        data-fade-in
+                        class="h-full w-full rounded-xs bg-grey flex items-center justify-center text-black"
+                    >
+                        {product.name} image
+                    </div>
+                )
+            }
+
+            {/* Gallery paging: a pair of carets in the image's bottom-left
+                corner, 10px off each edge. Each one steps the scroller by a
+                full image and goes transparent once there's nothing left that
+                way, so the pair doubles as a position readout. Desktop only —
+                under `md` the gallery is a horizontal swipe strip, where the
+                gesture is already obvious. The container stays inert to
+                pointers so only the carets themselves take clicks away from
+                shopZoom's press-to-magnify. */}
+            {
+                showScrollHint && (
+                    <div
+                        data-fade-in
+                        data-fade-in-duration="0.4"
+                        data-fade-in-ease="power2.inOut"
+                        class="pointer-events-none absolute bottom-2.5 left-2.5 hidden flex-col items-center gap-2.5 text-black md:flex"
+                    >
+                        <button
+                            id="gallery-prev"
+                            type="button"
+                            aria-label="Previous image"
+                            aria-controls="shop-gallery"
+                            class="gallery-step pointer-events-auto cursor-pointer transition-opacity disabled:cursor-default disabled:opacity-30"
+                        >
+                            <svg
+                                viewBox="0 0 8 5"
+                                fill="currentColor"
+                                aria-hidden="true"
+                                class="h-[0.3125rem] w-2"
+                            >
+                                <path d="M0 5 H8 L4 0 Z" />
+                            </svg>
+                        </button>
+                        <button
+                            id="gallery-next"
+                            type="button"
+                            aria-label="Next image"
+                            aria-controls="shop-gallery"
+                            class="gallery-step pointer-events-auto cursor-pointer transition-opacity disabled:cursor-default disabled:opacity-30"
+                        >
+                            <svg
+                                viewBox="0 0 8 5"
+                                fill="currentColor"
+                                aria-hidden="true"
+                                class="h-[0.3125rem] w-2"
+                            >
+                                <path d="M0 0 H8 L4 5 Z" />
+                            </svg>
+                        </button>
+                    </div>
+                )
+            }
+        </div>
 </Layout>
 
 <style>
@@ -198,11 +262,55 @@ const localGallery =
         });
     }
 
+    // Desktop gallery paging. Each caret steps the snap-scroller by exactly one
+    // image (a slide is the scroller's own height), and goes transparent once
+    // there's nothing left in that direction — so the pair doubles as a
+    // position readout: both solid mid-gallery, one faded at either end.
+    //
+    // Vertical only, which is all the desktop layout is: under `md` the gallery
+    // becomes a horizontal strip and the carets are hidden, leaving the native
+    // swipe to it.
+    function wireGalleryPaging() {
+        const gallery = document.getElementById("shop-gallery");
+        const prev = document.getElementById("gallery-prev");
+        const next = document.getElementById("gallery-next");
+        if (!gallery || !prev || !next) return;
+
+        // A slide is never a whole number of pixels after the layout rounds, so
+        // both ends need a pixel of slack to register as reached.
+        const EDGE = 1;
+
+        const syncEnds = () => {
+            const max = gallery.scrollHeight - gallery.clientHeight;
+            (prev as HTMLButtonElement).disabled = gallery.scrollTop <= EDGE;
+            (next as HTMLButtonElement).disabled =
+                gallery.scrollTop >= max - EDGE;
+        };
+
+        const step = (dir: 1 | -1) =>
+            gallery.scrollBy({
+                top: dir * gallery.clientHeight,
+                behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+                    .matches
+                    ? "auto"
+                    : "smooth",
+            });
+
+        prev.addEventListener("click", () => step(-1));
+        next.addEventListener("click", () => step(1));
+        gallery.addEventListener("scroll", syncEnds, { passive: true });
+        // The stage is sized off the navbar, so the scroller's height — and
+        // with it which end counts as reached — moves with the viewport.
+        window.addEventListener("resize", syncEnds);
+        syncEnds();
+    }
+
     // Paging is swipe-only under `md` — the snap-scroller handles it natively.
     // Taps belong to shopZoom's press-to-magnify instead.
     document.addEventListener("astro:page-load", () => {
         sizeStage();
         wireSpecToggle();
+        wireGalleryPaging();
     });
     window.addEventListener("resize", sizeStage);
 </script>

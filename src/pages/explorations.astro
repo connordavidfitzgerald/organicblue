@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import WebScene from "../components/explorations/WebScene.astro";
+import InfoOverlay from "../components/explorations/InfoOverlay.astro";
 ---
 
 <Layout title="Organic Blue">
@@ -10,6 +11,9 @@ import WebScene from "../components/explorations/WebScene.astro";
         style="bottom: var(--nav-h, 5rem);"
     >
         <WebScene />
+        {/* "+ Info" toggle + the sheet it opens, both stage-relative so the
+           sheet covers the scene and stops at the navbar. */}
+        <InfoOverlay />
     </div>
 </Layout>
 

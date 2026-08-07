@@ -1,0 +1,183 @@
+---
+// ── Explorations info overlay ──────────────────────────────────────────────
+// A "+ Info" toggle in the stage's top-right corner drops a translucent white
+// sheet over the WebScene: the capsule's title and statement up top, four
+// columns of writing along the bottom, with the sphere still faintly readable
+// through it.
+//
+// The copy lives here rather than in Sanity — it's one fixed essay about the
+// current capsule, not a managed collection. Blocks with a `label` render the
+// square-bulleted product entries.
+
+interface Block {
+    label?: string;
+    text: string;
+}
+
+interface Column {
+    title: string;
+    blocks: Block[];
+}
+
+const title = "Evening Sun";
+
+const statement =
+    "The final period of daylight when indoor and outdoor light equalize, dissolving the line between built and natural space. A threshold between the clarity of day and the mystery of night, marked by a loosening of material and social barriers — collective gathering, movement, human connection.";
+
+const columns: Column[] = [
+    {
+        title: "The Collection",
+        blocks: [
+            {
+                text: "Evening Sun comprises two fastpacks — ES.RS and ES.ST — and a lightweight sports cap, ES.CAP.",
+            },
+            {
+                text: "The packs take their reference from Group B rally racing, and the homologation rule that paired every race car with a road-going counterpart: the Audi Quattro, the Ford RS200, the Lancia 037.",
+            },
+            {
+                label: "ES.RS",
+                text: "Race spec. Built for trail: hip belt, 500ml flask pockets, dual-entry bottle pockets. Body in ULTRA200X and ULTRA TX95, reinforced with recycled nylon stringers along the front to carry load close to the body.",
+            },
+            {
+                label: "ES.ST",
+                text: "Stage spec. A tamer, sleeker version for urban and shifting terrain. No hip belt, no flask pockets — zip pockets for keys and essentials instead. Body in ULTRAGRID, for durability and weather resistance.",
+            },
+            {
+                label: "ES.CAP",
+                text: "Balances sport performance with everyday wear, developed alongside the packs using the same high-performance fabrics.",
+            },
+            {
+                text: "Both share a monobody vented mesh back panel and straps, wrapping from thoracic zone to chest to eliminate bounce and hold weight in place through sustained movement — walking, running, hiking, travel.",
+            },
+        ],
+    },
+    {
+        title: "Origin",
+        blocks: [
+            {
+                text: "The inspiration started with rides to the beach — quick single-track gravel roads, just before sunset. Daylight fell fast, and getting there before dark became my favourite challenge, each ride rewarded with a swim in the river. I became obsessed with the race down and back, hoping each time it would be darker than the last. There was something about it — as if I wasn't supposed to be there, not supposed to see the forest turn toward night. It gave me a strong sense of presence: there, but invisible, held by the trees around me. I started out with a headlamp in my bag. By the end of summer, I never used it. The rush of outrunning the dark followed me into daily life — I was enamoured with curiosity towards this time of day.",
+            },
+            {
+                text: "Why is a fleeting moment the best moment? Because it demands presence — to feel, not think. Reflection should follow presence, never replace it; it's in those moments of flow that you actually understand what's happening.",
+            },
+        ],
+    },
+    {
+        title: "Reference",
+        blocks: [
+            {
+                text: "Design research drew on three moth species — Long Tailed Burnet (Himantopteridae), Chinese Moon Moth (Actias dubernardi), African Moon Moth (Argema) — and two rays, Manta (Mobula birostris) and Stingray (Aetobatus narinari). The biological world as a source of purposeful adaptation, not ornament.",
+            },
+        ],
+    },
+    {
+        title: "Philosophy",
+        blocks: [
+            {
+                text: "The work explores what it means to travel with the least gear possible while sustaining movement over both hard terrain and city streets. Carrying less means seeing more.",
+            },
+            {
+                text: "The same logic drives fastpacking: maximize flow, minimize gear. On trail, the experience reduces to its core — the self, present, surrounded by wind and stars. What you carry should be intentional. Nothing forgotten, nothing unnecessary. A practice of respect for the ground you move through.",
+            },
+        ],
+    },
+];
+---
+
+{/* Sits above the sheet so it doubles as the way back out. */}
+<button
+    id="info-toggle"
+    type="button"
+    aria-expanded="false"
+    aria-controls="info-overlay"
+    class="absolute right-2.5 top-2.5 z-30 cursor-pointer text-sm leading-none text-black transition-opacity hover:opacity-60"
+>
+    <span id="info-toggle-sign">+</span> Info
+</button>
+
+<div
+    id="info-overlay"
+    {/* Same veil as the cart and the mobile filter panel: a white wash plus a
+       4px backdrop blur, so the scene reads as depth behind the text. */}
+    class="absolute inset-0 z-20 hidden flex-col justify-between gap-10 overflow-y-auto bg-white/80 backdrop-blur-[4px] p-2.5 text-black max-md:gap-5"
+>
+    <div data-info-block>
+        <h2 class="text-5xl leading-[105%] max-md:text-2xl">{title}</h2>
+        <p class="text-5xl leading-[105%] opacity-50 max-md:text-2xl">
+            {statement}
+        </p>
+    </div>
+
+    <div class="grid grid-cols-4 gap-2.5 text-sm leading-[110%] max-md:grid-cols-1 max-md:gap-5">
+        {
+            columns.map((column) => (
+                <div data-info-block>
+                    <h3 class="mb-[0.9375rem] font-medium">{column.title}</h3>
+                    <div class="flex flex-col gap-[0.9375rem]">
+                        {column.blocks.map((block) => (
+                            <div>
+                                {block.label && (
+                                    <p class="flex items-center gap-1 font-medium">
+                                        <span
+                                            aria-hidden="true"
+                                            class="inline-block h-2.5 w-2.5 shrink-0 bg-black"
+                                        />
+                                        {block.label}
+                                    </p>
+                                )}
+                                <p>{block.text}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))
+        }
+    </div>
+</div>
+
+<script>
+    import { flicker, flickerOut } from "../../scripts/flicker";
+
+    // The sheet blinks in block by block with the site's shared flicker
+    // language, and blinks back out in reverse before it's torn down — the same
+    // sequence the cart panel uses.
+    document.addEventListener("astro:page-load", () => {
+        const toggle = document.getElementById("info-toggle");
+        const sign = document.getElementById("info-toggle-sign");
+        const overlay = document.getElementById("info-overlay");
+        if (!toggle || !overlay) return;
+
+        const blocks = () =>
+            Array.from(overlay.querySelectorAll<HTMLElement>("[data-info-block]"));
+
+        const isOpen = () => !overlay.classList.contains("hidden");
+
+        const show = (open: boolean) => {
+            overlay.classList.toggle("hidden", !open);
+            overlay.classList.toggle("flex", open);
+            toggle.setAttribute("aria-expanded", String(open));
+            if (sign) sign.textContent = open ? "−" : "+";
+        };
+
+        const setOpen = (open: boolean) => {
+            if (open === isOpen()) return;
+            if (open) {
+                overlay.scrollTop = 0;
+                show(true);
+                flicker(blocks(), { step: 0.06 });
+                return;
+            }
+            flickerOut(blocks(), () => {
+                show(false);
+                // flickerOut leaves the blocks at opacity 0; clear it so the
+                // next open starts from the stylesheet's own state.
+                blocks().forEach((el) => (el.style.opacity = ""));
+            });
+        };
+
+        toggle.addEventListener("click", () => setOpen(!isOpen()));
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") setOpen(false);
+        });
+    });
+</script>

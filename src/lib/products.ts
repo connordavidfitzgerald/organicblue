@@ -24,8 +24,10 @@ export interface Product {
     specs: Record<string, string[]>;
 }
 
+// Rounded up, matching the client-side formatter in src/scripts/currency.ts —
+// this is the figure rendered at build time, before the switcher re-prices it.
 const money = (amount: string, code: string) =>
-    `${Math.round(Number(amount))} ${code}`;
+    `${Math.ceil(Number(amount))} ${code}`;
 
 // Product detail metafields we surface in the spec panel. All live in the
 // `custom` namespace in Shopify.
