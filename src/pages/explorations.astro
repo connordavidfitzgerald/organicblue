@@ -25,6 +25,30 @@ import InfoOverlay from "../components/explorations/InfoOverlay.astro";
         stage.style.setProperty("--nav-h", `${nav.offsetHeight}px`);
     }
 
+    // TEMP-PROBE
+    if (location.search.includes("probe")) {
+        localStorage.setItem(
+            "ob-cart",
+            JSON.stringify([
+                {
+                    slug: "es-rs",
+                    variantId: "1",
+                    name: "ES.RS",
+                    priceAmount: 625,
+                    priceCurrency: "CAD",
+                    image: "",
+                    qty: 1,
+                },
+            ]),
+        );
+        document.addEventListener("astro:page-load", () => {
+            setTimeout(
+                () => document.getElementById("info-toggle")?.click(),
+                1500,
+            );
+        });
+    }
+
     document.addEventListener("astro:page-load", sizeStage);
     window.addEventListener("resize", sizeStage);
 </script>

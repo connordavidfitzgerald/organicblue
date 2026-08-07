@@ -99,11 +99,15 @@ const columns: Column[] = [
     id="info-overlay"
     {/* Same veil as the cart and the mobile filter panel: a white wash plus a
        4px backdrop blur, so the scene reads as depth behind the text. */}
-    class="absolute inset-0 z-20 hidden flex-col justify-between gap-10 overflow-y-auto bg-white/80 backdrop-blur-[4px] p-2.5 text-black max-md:gap-5"
+    {/* Under `md` the cart floats over the stage's top-left corner, right where
+       the title sits — so the content starts below whatever room it takes.
+       --cart-h is published by the navbar's cart script and is 0px while the
+       cart is empty, so nothing shifts when there's nothing in the way. */}
+    class="absolute inset-0 z-20 hidden flex-col justify-between gap-10 overflow-y-auto bg-white/80 backdrop-blur-[4px] p-2.5 text-black max-md:gap-5 max-md:pt-[calc(0.625rem+var(--cart-h,0px))]"
 >
     <div data-info-block>
         <h2 class="text-5xl leading-[105%] max-md:text-2xl">{title}</h2>
-        <p class="text-5xl leading-[105%] opacity-50 max-md:text-2xl">
+        <p class="mt-[0.9375rem] text-5xl leading-[105%] opacity-50 max-md:mt-2.5 max-md:text-2xl">
             {statement}
         </p>
     </div>
