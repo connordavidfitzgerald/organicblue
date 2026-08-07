@@ -25,6 +25,37 @@
     --text-sm: 0.875rem;
 }
 
+/* ── Fluid root size ──────────────────────────────────────────────────────
+   Every size on the site is rem-based (Tailwind spacing, the navbar's h-8
+   rows, the type scale above), so the whole layout is pinned to a 16px root
+   and stays physically fixed while the viewport shrinks around it. On a
+   display scaled to ~1440px logical the navbar therefore eats a noticeably
+   larger share of the screen than it does at 2000px+.
+
+   Scale the root instead: 12px at ≤1280px viewport, ramping to 16px at
+   ≥2000px, so wide screens render exactly as before and narrower ones ease
+   down proportionally. Endpoints follow
+     slope     = (16 - 12) / (2000 - 1280) = 0.5556vw
+     intercept = 12 - slope * 1280         = 4.8889px = 0.3056rem
+
+   NOTE: this is the no-JS fallback only. Layout.astro sets font-size inline
+   from window.screen.width before first paint, which outranks this rule and
+   is the behaviour you actually get. vw tracks the *window*, so on its own it
+   shrinks the chrome when someone merely narrows their browser on a wide
+   display — the inline version keys off the display instead. Same ramp, so
+   the two agree whenever the window is maximised.
+
+   The rem term in the middle expression is deliberate — a pure vw value
+   would override the reader's browser font-size preference outright.
+
+   Note that Tailwind's breakpoints are unaffected: rem inside a media query
+   always resolves against the browser's *initial* font size, not this rule,
+   so --breakpoint-md stays 768px and the max-md: mobile navbar variants
+   switch over at the same place they always did. */
+html {
+    font-size: clamp(0.75rem, 0.3056rem + 0.5556vw, 1rem);
+}
+
 @utility spacing-padding {
     padding-left: 1rem;
     padding-right: 1rem;

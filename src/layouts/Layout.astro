@@ -24,7 +24,38 @@ const { title = "Organic Blue", isHome = false } = Astro.props;
            in cleanly with the rest of the interface instead of painting first.
            The class is dropped after the first sweep; later navigations keep
            persistent tiles visible and only diff what changed. */}
+        {/* Root size keyed to the *display*, not the window. Every size on the
+           site is rem-based, so this scales the whole interface — most
+           visibly the navbar, which otherwise holds a fixed pixel height and
+           eats a bigger share of the screen the lower the resolution goes.
+
+           screen.width is the logical width the OS display setting produces:
+           it drops when someone picks a scaled resolution and, unlike vw,
+           does NOT move when they resize the browser window. A narrowed
+           window on a wide display should not shrink the chrome; a display
+           scaled to 1440 should. The global.css clamp() is the same ramp in
+           vw and stays as the no-JS fallback — this inline style outranks it.
+
+           Runs in <head> so it lands before first paint. */}
         <script is:inline>
+            (function () {
+                function applyRootScale() {
+                    var w =
+                        (window.screen && window.screen.width) ||
+                        window.innerWidth;
+                    // 12px at <=1280 logical, ramping to 16px at >=2000.
+                    var px = 4.8889 + 0.005556 * w;
+                    document.documentElement.style.fontSize =
+                        Math.max(12, Math.min(px, 16)) + "px";
+                }
+                applyRootScale();
+                // Catches a resolution change or a drag to a second monitor.
+                // Registered once here; the listener and the inline style both
+                // outlive ClientRouter navigations (<html> is never swapped),
+                // so this does not need re-running on astro:page-load.
+                addEventListener("resize", applyRootScale);
+            })();
+
             document.documentElement.classList.add("nav-boot");
             // Homepage intro: on the first hard load of "/", start with the
             // navbar tucked off-screen behind a click-to-enter overlay. Set
