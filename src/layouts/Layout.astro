@@ -2,13 +2,22 @@
 import { ClientRouter } from "astro:transitions";
 import "../styles/global.css";
 import Navbar from "../components/Navbar.astro";
+import { shareImage, shareImageAlt } from "../lib/site";
 
 interface Props {
     title?: string;
+    description?: string;
     isHome?: boolean;
 }
 
-const { title = "Organic Blue", isHome = false } = Astro.props;
+const {
+    title = "Organic Blue",
+    description = "Organic Blue is a Montreal-based design studio working across technical garments, objects and spatial experiences.",
+    isHome = false,
+} = Astro.props;
+
+// Absolute, per-page — scrapers won't resolve a relative og:url.
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <html lang="en" transition:animate="none">
@@ -18,7 +27,26 @@ const { title = "Organic Blue", isHome = false } = Astro.props;
         <link rel="icon" href="/favicon.ico" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="generator" content={Astro.generator} />
+        <meta name="description" content={description} />
+        <link rel="canonical" href={canonical} />
         <title>{title}</title>
+        {/* Open Graph + Twitter, driven by the same title/description above so
+           a page that overrides either gets the matching share card for free.
+           The image is a still from the homepage film (src/lib/site.ts). */}
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Organic Blue" />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:url" content={canonical} />
+        <meta property="og:image" content={shareImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={shareImageAlt} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={title} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={shareImage} />
+        <meta name="twitter:image:alt" content={shareImageAlt} />
         <ClientRouter />
         {/* On the initial hard load, pre-hide the navbar tiles so they flicker
            in cleanly with the rest of the interface instead of painting first.

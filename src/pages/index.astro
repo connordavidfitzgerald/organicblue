@@ -1,12 +1,13 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import CurrencySelect from "../components/CurrencySelect.astro";
+import { homePlaybackId } from "../lib/site";
 ---
 
 <Layout title="Organic Blue" isHome={true}>
     <div id="home-video" class="fixed inset-0.5 -z-10 overflow-hidden">
         <mux-player
-            playback-id="qDlRrWP8z9ZWKxN5PjJZath003lYoGgEgBQPtH4V15uk"
+            playback-id={homePlaybackId}
             autoplay
             muted
             loop

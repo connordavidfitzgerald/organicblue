@@ -15,6 +15,10 @@ const { PUBLIC_SANITY_PROJECT_ID, PUBLIC_SANITY_DATASET } = loadEnv(
 )
 
 export default defineConfig({
+  // Production origin. Open Graph requires absolute URLs, so Layout.astro
+  // builds its canonical/og:url from Astro.site — which is undefined unless
+  // this is set, and `new URL(path, undefined)` throws rather than degrading.
+  site: 'https://organicblue000.com',
   output: 'static',
   image: {
     // Allow Astro's <Image>/getImage to optimize Shopify-hosted product images.
