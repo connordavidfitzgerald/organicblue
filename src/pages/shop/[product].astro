@@ -96,17 +96,26 @@ const showScrollHint = galleryLength > 1;
                     <span><span id="spec-toggle-sign">+</span> Info</span>
                 </button>
             </div>
+            {/* Sold out (per Shopify inventory) keeps the row and the price but
+                drops the hover swap, and sheds `data-add-to-cart` so Navbar
+                never wires a cart click to it. */}
             <button
                 type="button"
-                data-add-to-cart
+                disabled={!product.available}
+                data-add-to-cart={product.available ? true : undefined}
                 data-slug={product.slug}
                 data-variant-id={product.variantId}
                 data-name={product.name}
                 data-price={product.price}
                 data-image={cartImage}
-                class="flex w-full items-center px-1.5 py-1.5 rounded-xs h-8 flex-row justify-between bg-black text-grey transition-colors hover:bg-grey hover:text-black max-md:order-1 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem]"
+                class:list={[
+                    "flex w-full items-center px-1.5 py-1.5 rounded-xs h-8 flex-row justify-between bg-black text-grey transition-colors max-md:order-1 max-md:h-10 max-md:px-2.5 max-md:py-[0.8125rem]",
+                    product.available
+                        ? "hover:bg-grey hover:text-black"
+                        : "cursor-default opacity-40",
+                ]}
             >
-                <span>Add to cart</span>
+                <span>{product.available ? "Add to cart" : "Sold out"}</span>
                 {/* Re-priced per market by src/scripts/currency.ts. */}
                 <span data-price-display={product.slug}>{product.price}</span>
             </button>

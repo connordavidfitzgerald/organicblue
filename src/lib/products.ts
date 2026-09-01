@@ -16,6 +16,9 @@ export interface Product {
     // Numeric ID of the first variant, used to build the Shopify checkout
     // permalink. Empty in fallback mode.
     variantId: string;
+    // False when Shopify reports the product (or its checkout variant) out of
+    // stock. True in fallback mode, where there's no inventory to consult.
+    available: boolean;
     detailTitle: string; // heading shown on the product detail page
     description: string; // HTML from Shopify (empty in fallback)
     images: ProductImage[];
@@ -53,8 +56,9 @@ const PRODUCT_FIELDS = `
     handle
     title
     descriptionHtml
+    availableForSale
     priceRange { minVariantPrice { amount currencyCode } }
-    variants(first: 1) { nodes { id } }
+    variants(first: 1) { nodes { id availableForSale } }
     images(first: 20) {
         nodes {
             altText
@@ -93,12 +97,18 @@ function mapShopify(p: any): Product {
     }
     // Storefront IDs are GIDs (gid://shopify/ProductVariant/123); the checkout
     // permalink wants the trailing numeric part.
-    const variantGid: string = p.variants?.nodes?.[0]?.id ?? "";
+    const variant = p.variants?.nodes?.[0];
+    const variantGid: string = variant?.id ?? "";
+    // Product-level availability covers the whole catalog entry; the variant
+    // check catches the case where the one we check out with is the sold-out
+    // one. A missing variant can't be bought either.
+    const available = !!p.availableForSale && variant?.availableForSale !== false;
     return {
         slug: p.handle,
         name: p.title,
         price: money(price.amount, price.currencyCode),
         variantId: variantGid.split("/").pop() ?? "",
+        available,
         detailTitle: detailTitle || p.title,
         description: p.descriptionHtml ?? "",
         images: p.images.nodes.map((i: any) => ({
@@ -120,6 +130,7 @@ function fromFallback(p: {
     return {
         ...p,
         variantId: "",
+        available: true,
         detailTitle: p.name,
         description: "",
         images: [],
