@@ -3,14 +3,15 @@
 // layout (MixAudio.astro) and keeps playing everywhere on the site; this is
 // the only place it can be driven from.
 //
-// At rest it is just the two bracketed labels, set in the same white caption
-// type as the currency switcher in the opposite corner. Clicking one loads and
-// plays that mix and drops the transport in underneath — play/pause, elapsed,
-// a hairline scrub track, and the total.
+// At rest it is just the two labels, set in the same white caption type as the
+// currency switcher up in the opposite corner. Clicking one loads and plays
+// that mix and brings the transport in beside it — play/pause, elapsed, a
+// hairline scrub track, and the total.
 //
-// Desktop: top-left corner, mirroring CurrencySelect's insets. Under `md` the
-// top-left corner belongs to the cart, so the whole thing moves to the bottom
-// and rides just above the navbar.
+// The bar spans the full width one gap above the navbar, so it reads as part
+// of the same bottom edge of chrome. Above `md` that is one row, with the
+// track taking whatever the labels and timecodes leave; under `md` there is
+// no room for that, so the transport drops to a second line.
 import { mixes } from "../lib/mixes";
 ---
 
@@ -25,6 +26,12 @@ import { mixes } from "../lib/mixes";
                     aria-pressed="false"
                 >
                     {m.label}
+                    {/* Who and where, revealed on the mix that is playing and
+                        hidden on the other. Same everywhere — there is nothing
+                        to hover here, so nothing to miss on a touchscreen. */}
+                    <span class="mix-credit">
+                        by {m.artist}, {m.city}
+                    </span>
                 </button>
             ))
         }
@@ -70,19 +77,20 @@ import { mixes } from "../lib/mixes";
 </div>
 
 <style>
-    /* Geometry and type copied from #currency-select so the two corners read
-       as one family: 11px white caption, --edge inset matching the navbar
-       tiles, widening to 10px under `md`. */
+    /* Geometry and type copied from #currency-select so the chrome reads as
+       one family: 11px white caption, --edge inset matching the navbar tiles,
+       widening to 10px under `md`.
+
+       The bar spans the full width, one gap above the navbar — which is why
+       the scrub track has the whole screen to stretch across. --mix-bottom is
+       measured off #navbar in the script rather than hard-coded, since the
+       navbar grows a row whenever the mobile menu opens. */
     #mix-player {
         --edge: 0.375rem;
         position: fixed;
-        top: 0.125rem;
         left: 0.125rem;
-        /* The bar runs the width of the screen so the scrub track can stretch
-           across it. Its right edge stops short of #currency-select, whose
-           width is measured in the script — it hugs the current market's
-           label and animates wider while its list is open. */
-        right: var(--mix-right, 18rem);
+        right: 0.125rem;
+        bottom: var(--mix-bottom, 3.5rem);
         z-index: 40;
         display: flex;
         align-items: center;
@@ -90,21 +98,11 @@ import { mixes } from "../lib/mixes";
         line-height: 1;
     }
 
-    /* Under `md` the top-left corner is the cart's, so the player relocates to
-       the bottom edge and sits one gap above the navbar. --mix-bottom is
-       measured off #navbar in the script, since the navbar grows a row when
-       the menu opens. */
-    /* Under `md` there isn't room for one long row, so the transport drops
-       to a second line under the labels. */
+    /* Under `md` there isn't room for one long row, so the transport drops to
+       a second line under the labels. */
     @media (width < 48rem) {
         #mix-player {
             --edge: 0.625rem;
-            top: auto;
-            left: 0.125rem;
-            /* Nothing to clear down here — the currency switcher is up in the
-               opposite corner — so the bar takes the full width. */
-            right: 0.125rem;
-            bottom: var(--mix-bottom, 3.5rem);
             flex-direction: column;
             align-items: stretch;
         }
@@ -114,6 +112,13 @@ import { mixes } from "../lib/mixes";
         display: flex;
         flex: none;
         align-items: center;
+    }
+    /* Under `md` the credit can push the pair past the screen edge, so let the
+       second label drop to its own line rather than overflow. */
+    @media (width < 48rem) {
+        #mix-labels {
+            flex-wrap: wrap;
+        }
     }
 
     .mix-label,
@@ -134,6 +139,21 @@ import { mixes } from "../lib/mixes";
     }
     #mix-player.has-mix .mix-label[aria-pressed="false"]:hover {
         opacity: 0.75;
+    }
+
+    /* The credit trails the name of whichever mix is playing, a step back from
+       it so the name still leads. Only ever on one label at a time, which is
+       what keeps the pair from doubling in width. */
+    .mix-credit {
+        display: none;
+        margin-left: 0.35em;
+        /* Dimmed through the colour rather than opacity: the flicker below
+           animates opacity and leaves it at 1, which would undo a dim set
+           that way. */
+        color: rgb(255 255 255);
+    }
+    .mix-label[aria-pressed="true"] .mix-credit {
+        display: inline;
     }
 
     /* The transport only exists once something has been chosen. */
@@ -279,6 +299,9 @@ import { mixes } from "../lib/mixes";
             scrub.setAttribute("aria-valuetext", formatTime(position));
         };
 
+        // Which label is currently wearing its credit — see sync().
+        let creditedId: string | null = null;
+
         // Reveal the transport the first time a mix is picked, with the site's
         // shared blink-in. Later syncs must not re-run it.
         let revealed = root.classList.contains("has-mix");
@@ -292,6 +315,17 @@ import { mixes } from "../lib/mixes";
                     String(el.dataset.mix === id),
                 ),
             );
+
+            // The credit blinks in with the site's shared flicker whenever the
+            // playing mix changes. sync() runs on every timeupdate, so this is
+            // gated on the id rather than firing four times a second.
+            if (id !== creditedId) {
+                creditedId = id;
+                const credit = labels
+                    .find((el) => el.dataset.mix === id)
+                    ?.querySelector<HTMLElement>(".mix-credit");
+                if (credit) flicker([credit], { sort: false });
+            }
             const playing = !audio.paused;
             root.classList.toggle("is-playing", playing);
             toggle.setAttribute(
@@ -374,27 +408,7 @@ import { mixes } from "../lib/mixes";
         on("durationchange", sync);
         on("loadedmetadata", sync);
 
-        // ── Right edge ───────────────────────────────────────────────────
-        // Stop the bar short of the currency switcher in the opposite corner.
-        // That element sizes itself in JS — it hugs whichever market is
-        // selected and animates out to the longest name while its list is
-        // open — so a ResizeObserver tracks it, transition included, rather
-        // than measuring once. Under `md` the CSS right inset takes over and
-        // this is inert.
-        const currency = document.getElementById("currency-select");
-        if (currency) {
-            const fitRight = () =>
-                root.style.setProperty(
-                    "--mix-right",
-                    `calc(${currency.getBoundingClientRect().width}px)`,
-                );
-            const ro = new ResizeObserver(fitRight);
-            ro.observe(currency);
-            ac.signal.addEventListener("abort", () => ro.disconnect());
-            fitRight();
-        }
-
-        // ── Mobile offset ────────────────────────────────────────────────
+        // ── Navbar offset ────────────────────────────────────────────────
         // Park the bar one gap above the navbar, which is taller whenever the
         // mobile menu is open. The navbar dispatches a synthetic resize when
         // that happens, so this stays in step for free.

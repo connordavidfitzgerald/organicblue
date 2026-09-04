@@ -14,6 +14,7 @@ export type MixInfo = {
     label: string;
     title: string;
     artist: string;
+    city: string;
     src: string;
     artwork: string;
 };

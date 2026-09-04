@@ -119,6 +119,16 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
             html.nav-boot [data-nav-flicker] {
                 opacity: 0;
             }
+            /* Same job for the mix player, which rides above the navbar and so
+               would otherwise paint in view for a frame on a hard load of "/"
+               before global.css tucks it below the fold. That rule arrives
+               with the stylesheet — in dev, injected by JS a beat later — but
+               this one is parsed with the document, so the bar is never seen
+               on the landing. It fades back in with the navbar's slide when
+               the first click clears `home-intro`. */
+            html.home-intro #mix-player {
+                opacity: 0;
+            }
         </style>
         {/* Content flickers in via the shared flicker language; keep flicker
            elements visible when JS is unavailable. */}

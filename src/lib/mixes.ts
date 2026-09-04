@@ -17,6 +17,8 @@ export type Mix = {
     /** Lock screen / Control Center title + artist. */
     title: string;
     artist: string;
+    /** Shown with the artist in the label's hover card. */
+    city: string;
     src: string;
     artwork: string;
 };
@@ -43,7 +45,8 @@ export const mixes: Mix[] = [
         id: "7pm",
         label: "ES.MIX 7PM",
         title: "ES.MIX 7PM",
-        artist: "ONLYHANS",
+        artist: "VAYIA",
+        city: "Montréal, QC",
         src: "/mixes/es-mix-7pm.m4a",
         artwork: coverFor("7pm"),
     },
@@ -51,7 +54,8 @@ export const mixes: Mix[] = [
         id: "10pm",
         label: "ES.MIX 10PM",
         title: "ES.MIX 10PM",
-        artist: "VAYIA",
+        artist: "ONLYHANS",
+        city: "Montréal, QC",
         src: "/mixes/es-mix-10pm.m4a",
         artwork: coverFor("10pm"),
     },
