@@ -8,10 +8,11 @@
 // that mix and brings the transport in beside it — play/pause, elapsed, a
 // hairline scrub track, and the total.
 //
-// The bar spans the full width one gap above the navbar, so it reads as part
-// of the same bottom edge of chrome. Above `md` that is one row, with the
-// track taking whatever the labels and timecodes leave; under `md` there is
-// no room for that, so the transport drops to a second line.
+// Desktop: the top-left corner, running as one row across to the currency
+// switcher opposite, with the track taking whatever the labels and timecodes
+// leave. Under `md` that corner belongs to the cart and there is no room for
+// one long row, so the bar moves to the bottom edge above the navbar and the
+// transport drops to a second line.
 import { mixes } from "../lib/mixes";
 ---
 
@@ -81,16 +82,16 @@ import { mixes } from "../lib/mixes";
        one family: 11px white caption, --edge inset matching the navbar tiles,
        widening to 10px under `md`.
 
-       The bar spans the full width, one gap above the navbar — which is why
-       the scrub track has the whole screen to stretch across. --mix-bottom is
-       measured off #navbar in the script rather than hard-coded, since the
-       navbar grows a row whenever the mobile menu opens. */
+       The bar runs the width of the screen so the scrub track can stretch
+       across it. Its right edge stops short of #currency-select, whose width
+       is measured in the script — it hugs the current market's label and
+       animates wider while its list is open. */
     #mix-player {
         --edge: 0.375rem;
         position: fixed;
+        top: 0.125rem;
         left: 0.125rem;
-        right: 0.125rem;
-        bottom: var(--mix-bottom, 3.5rem);
+        right: var(--mix-right, 18rem);
         z-index: 40;
         display: flex;
         align-items: center;
@@ -98,11 +99,19 @@ import { mixes } from "../lib/mixes";
         line-height: 1;
     }
 
-    /* Under `md` there isn't room for one long row, so the transport drops to
-       a second line under the labels. */
+    /* Under `md` the top-left corner is the cart's, so the bar moves to the
+       bottom edge and sits one gap above the navbar — measured off #navbar in
+       the script, since the navbar grows a row when the mobile menu opens.
+       There is no room for one long row down there either, so the transport
+       drops to a second line under the labels. */
     @media (width < 48rem) {
         #mix-player {
             --edge: 0.625rem;
+            top: auto;
+            /* Nothing to clear here — the currency switcher is up in the
+               opposite corner — so the bar takes the full width. */
+            right: 0.125rem;
+            bottom: var(--mix-bottom, 3.5rem);
             flex-direction: column;
             align-items: stretch;
         }
@@ -407,6 +416,26 @@ import { mixes } from "../lib/mixes";
         on("timeupdate", sync);
         on("durationchange", sync);
         on("loadedmetadata", sync);
+
+        // ── Right edge ───────────────────────────────────────────────────
+        // Stop the bar short of the currency switcher in the opposite corner.
+        // That element sizes itself in JS — it hugs whichever market is
+        // selected and animates out to the longest name while its list is
+        // open — so a ResizeObserver tracks it, transition included, rather
+        // than measuring once. Under `md` the CSS right inset takes over and
+        // this is inert.
+        const currency = document.getElementById("currency-select");
+        if (currency) {
+            const fitRight = () =>
+                root.style.setProperty(
+                    "--mix-right",
+                    `calc(${currency.getBoundingClientRect().width}px)`,
+                );
+            const ro = new ResizeObserver(fitRight);
+            ro.observe(currency);
+            ac.signal.addEventListener("abort", () => ro.disconnect());
+            fitRight();
+        }
 
         // ── Navbar offset ────────────────────────────────────────────────
         // Park the bar one gap above the navbar, which is taller whenever the
