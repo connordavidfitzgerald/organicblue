@@ -2,6 +2,7 @@
 import { ClientRouter } from "astro:transitions";
 import "../styles/global.css";
 import Navbar from "../components/Navbar.astro";
+import MixAudio from "../components/MixAudio.astro";
 import { shareImage, shareImageAlt } from "../lib/site";
 
 interface Props {
@@ -161,6 +162,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     </head>
     <body data-page={isHome ? "home" : "inner"}>
         <Navbar />
+        {/* The site's one <audio>: persisted across navigations so a mix
+           started on the homepage keeps playing everywhere. The transport for
+           it is homepage-only (MixPlayer.astro). */}
+        <MixAudio />
         <slot />
     </body>
 </html>

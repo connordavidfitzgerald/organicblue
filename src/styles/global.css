@@ -152,6 +152,23 @@ html.home-intro #cart-mobile {
 html.home-intro #currency-select {
     transform: translateY(calc(-100% - 0.125rem));
 }
+/* The mix player is a third piece of chrome living outside the navbar. On
+   desktop it sits in the top-left corner, so it tucks off the top edge like
+   the currency switcher; under `md` it rides just above the navbar and tucks
+   downwards with it instead. Same timing as everything else, so the whole
+   interface arrives on the first click as one move. */
+#mix-player {
+    transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html.home-intro #mix-player {
+    transform: translateY(calc(-100% - 0.125rem));
+}
+@media (width < 48rem) {
+    html.home-intro #mix-player {
+        transform: translateY(calc(100% + var(--mix-bottom, 3.5rem)));
+    }
+}
+
 #home-video {
     transition:
         filter 0.8s ease,
@@ -173,6 +190,7 @@ html.home-intro #home-intro {
 @media (prefers-reduced-motion: reduce) {
     #navbar,
     #currency-select,
+    #mix-player,
     #home-intro,
     #home-video {
         transition: none;

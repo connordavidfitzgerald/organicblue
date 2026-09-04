@@ -1,0 +1,34 @@
+---
+// The site's one audio element, rendered by Layout.astro on every page.
+//
+// `transition:persist` is what makes a mix keep playing while you browse: on a
+// ClientRouter navigation Astro carries this exact node into the swapped-in
+// document instead of letting the old <body> take it away. (Detaching a media
+// element pauses it, so re-creating it per page would cut the music off at
+// every link.) The visible transport lives on the homepage only —
+// MixPlayer.astro — and is just a view over this element.
+import { mixes } from "../lib/mixes";
+---
+
+{/* preload="none" — the mixes are ~50 MB each; nothing is fetched until a
+   label is clicked. */}
+<audio
+    id="ob-mix-audio"
+    transition:persist="ob-mix-audio"
+    preload="none"></audio>
+
+{/* Build-time mix table, read by src/scripts/mix.ts. Same idiom as the
+   navbar's #ob-prices. */}
+<script
+    type="application/json"
+    id="ob-mixes"
+    is:inline
+    set:html={JSON.stringify(mixes)}
+/>
+
+<script>
+    // Registers the Media Session handlers (lock screen / Control Center) and
+    // the resume-across-reloads bookkeeping. Import-only: all of it is
+    // one-time wiring guarded inside the module.
+    import "../scripts/mix";
+</script>

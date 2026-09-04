@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import CurrencySelect from "../components/CurrencySelect.astro";
+import MixPlayer from "../components/MixPlayer.astro";
 import { homePlaybackId } from "../lib/site";
 ---
 
@@ -18,6 +19,7 @@ import { homePlaybackId } from "../lib/site";
     </div>
 
     <CurrencySelect />
+    <MixPlayer />
 
     {/* Intro overlay — shown only during `home-intro` (initial hard load of the
        homepage). Clicking anywhere reveals the navbar and unblurs the video

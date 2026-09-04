@@ -1,0 +1,414 @@
+---
+// Homepage transport for the two DJ mixes. The audio itself lives in the
+// layout (MixAudio.astro) and keeps playing everywhere on the site; this is
+// the only place it can be driven from.
+//
+// At rest it is just the two bracketed labels, set in the same white caption
+// type as the currency switcher in the opposite corner. Clicking one loads and
+// plays that mix and drops the transport in underneath — play/pause, elapsed,
+// a hairline scrub track, and the total.
+//
+// Desktop: top-left corner, mirroring CurrencySelect's insets. Under `md` the
+// top-left corner belongs to the cart, so the whole thing moves to the bottom
+// and rides just above the navbar.
+import { mixes } from "../lib/mixes";
+---
+
+<div id="mix-player" class="text-white select-none">
+    <div id="mix-labels">
+        {
+            mixes.map((m) => (
+                <button
+                    type="button"
+                    class="mix-label"
+                    data-mix={m.id}
+                    aria-pressed="false"
+                >
+                    {m.label}
+                </button>
+            ))
+        }
+    </div>
+
+    <div id="mix-controls">
+        {/* Both glyphs ship; CSS shows whichever matches the state. They
+           share a viewBox, so swapping one for the other can't shift the
+           timecodes and track along the row. */}
+        <button id="mix-toggle" type="button" aria-label="Play the mix">
+            <svg
+                class="mix-icon mix-icon-play"
+                viewBox="0 0 8 10"
+                fill="currentColor"
+                aria-hidden="true"
+            >
+                <path d="M0 0 L8 5 L0 10 Z"></path>
+            </svg>
+            <svg
+                class="mix-icon mix-icon-pause"
+                viewBox="0 0 8 10"
+                fill="currentColor"
+                aria-hidden="true"
+            >
+                <path d="M0 0 H2.5 V10 H0 Z M5.5 0 H8 V10 H5.5 Z"></path>
+            </svg>
+        </button>
+        <span id="mix-elapsed">0:00</span>
+        {/* Padded well past the 1px rule so the scrub target is thumb-sized. */}
+        <div
+            id="mix-scrub"
+            role="slider"
+            tabindex="0"
+            aria-label="Seek"
+            aria-valuemin="0"
+            aria-valuemax="0"
+            aria-valuenow="0"
+        >
+            <div id="mix-track"><div id="mix-fill"></div></div>
+        </div>
+        <span id="mix-duration">0:00</span>
+    </div>
+</div>
+
+<style>
+    /* Geometry and type copied from #currency-select so the two corners read
+       as one family: 11px white caption, --edge inset matching the navbar
+       tiles, widening to 10px under `md`. */
+    #mix-player {
+        --edge: 0.375rem;
+        position: fixed;
+        top: 0.125rem;
+        left: 0.125rem;
+        /* The bar runs the width of the screen so the scrub track can stretch
+           across it. Its right edge stops short of #currency-select, whose
+           width is measured in the script — it hugs the current market's
+           label and animates wider while its list is open. */
+        right: var(--mix-right, 18rem);
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        font-size: 0.6875rem;
+        line-height: 1;
+    }
+
+    /* Under `md` the top-left corner is the cart's, so the player relocates to
+       the bottom edge and sits one gap above the navbar. --mix-bottom is
+       measured off #navbar in the script, since the navbar grows a row when
+       the menu opens. */
+    /* Under `md` there isn't room for one long row, so the transport drops
+       to a second line under the labels. */
+    @media (width < 48rem) {
+        #mix-player {
+            --edge: 0.625rem;
+            top: auto;
+            left: 0.125rem;
+            /* Nothing to clear down here — the currency switcher is up in the
+               opposite corner — so the bar takes the full width. */
+            right: 0.125rem;
+            bottom: var(--mix-bottom, 3.5rem);
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+
+    #mix-labels {
+        display: flex;
+        flex: none;
+        align-items: center;
+    }
+
+    .mix-label,
+    #mix-toggle {
+        padding: var(--edge);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: opacity 0.3s ease;
+    }
+    .mix-label:hover,
+    #mix-toggle:hover {
+        opacity: 0.6;
+    }
+    /* Once a mix is loaded the other label steps back, so which one is on is
+       readable at a glance. */
+    #mix-player.has-mix .mix-label[aria-pressed="false"] {
+        opacity: 0.45;
+    }
+    #mix-player.has-mix .mix-label[aria-pressed="false"]:hover {
+        opacity: 0.75;
+    }
+
+    /* The transport only exists once something has been chosen. */
+    #mix-controls {
+        display: none;
+        align-items: center;
+        gap: 0.625rem;
+        /* Everything the labels leave — the scrub track inside then takes
+           everything the play button and the two timecodes leave. */
+        flex: 1;
+        min-width: 0;
+        padding: var(--edge);
+    }
+    #mix-player.has-mix #mix-controls {
+        display: flex;
+    }
+    /* Stacked under `md`, where growing along the main axis would stretch the
+       row vertically instead. */
+    @media (width < 48rem) {
+        #mix-controls {
+            flex: 0 0 auto;
+        }
+    }
+    /* The toggle carries its own --edge padding as a row of its own; inside
+       the transport row it only needs the right-hand side of it. */
+    #mix-toggle {
+        display: flex;
+        align-items: center;
+        padding: 0;
+    }
+
+    /* Sized off the caption's own line so the glyph reads as one more piece of
+       11px type rather than a control bolted on. */
+    .mix-icon {
+        display: block;
+        width: 0.5rem;
+        height: 0.625rem;
+    }
+    .mix-icon-pause,
+    #mix-player.is-playing .mix-icon-play {
+        display: none;
+    }
+    #mix-player.is-playing .mix-icon-pause {
+        display: block;
+    }
+
+    #mix-elapsed,
+    #mix-duration {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    /* A hairline rule with a solid fill riding it — the same visual language
+       as the currency list's scroll track. The generous vertical padding
+       (cancelled by the negative margin) is the touch target. */
+    #mix-scrub {
+        flex: 1;
+        padding-block: 0.625rem;
+        margin-block: -0.625rem;
+        cursor: pointer;
+        touch-action: none;
+    }
+    #mix-track {
+        position: relative;
+        height: 1px;
+        background: rgb(255 255 255 / 0.4);
+    }
+    #mix-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0;
+        background: #fff;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .mix-label,
+        #mix-toggle {
+            transition: none;
+        }
+    }
+</style>
+
+<script>
+    import { flicker } from "../scripts/flicker";
+    import {
+        currentMixId,
+        formatTime,
+        getAudio,
+        playMix,
+        seekMix,
+        toggleMix,
+    } from "../scripts/mix";
+
+    document.addEventListener("astro:page-load", () => {
+        const root = document.getElementById("mix-player");
+        const audio = getAudio();
+        if (!root || !audio) return;
+
+        const controls = document.getElementById("mix-controls");
+        const toggle = document.getElementById("mix-toggle");
+        const elapsed = document.getElementById("mix-elapsed");
+        const duration = document.getElementById("mix-duration");
+        const scrub = document.getElementById("mix-scrub");
+        const fill = document.getElementById("mix-fill");
+        if (!controls || !toggle || !elapsed || !duration || !scrub || !fill)
+            return;
+
+        const labels = Array.from(
+            root.querySelectorAll<HTMLButtonElement>(".mix-label"),
+        );
+
+        // The audio element is persisted across navigations, so its listeners
+        // would stack up one set per page without this — dropped on the way
+        // out of the page they were bound on.
+        const ac = new AbortController();
+        const on = <K extends keyof HTMLMediaElementEventMap>(
+            type: K,
+            fn: () => void,
+        ) => audio.addEventListener(type, fn, { signal: ac.signal });
+        document.addEventListener(
+            "astro:before-swap",
+            () => ac.abort(),
+            { once: true },
+        );
+
+        // While a drag is in progress the fill follows the pointer, not the
+        // element — otherwise timeupdate would yank it back mid-scrub.
+        let scrubbing = false;
+
+        const ratioAt = (clientX: number) => {
+            const rect = scrub.getBoundingClientRect();
+            if (rect.width <= 0) return 0;
+            return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+        };
+
+        const paint = (position: number, total: number) => {
+            const ratio = total > 0 ? Math.min(1, position / total) : 0;
+            fill.style.width = `${ratio * 100}%`;
+            elapsed.textContent = formatTime(position);
+            duration.textContent = formatTime(total);
+            scrub.setAttribute("aria-valuemax", String(Math.floor(total)));
+            scrub.setAttribute("aria-valuenow", String(Math.floor(position)));
+            scrub.setAttribute("aria-valuetext", formatTime(position));
+        };
+
+        // Reveal the transport the first time a mix is picked, with the site's
+        // shared blink-in. Later syncs must not re-run it.
+        let revealed = root.classList.contains("has-mix");
+        const sync = () => {
+            const id = currentMixId();
+            const loaded = Boolean(id);
+            root.classList.toggle("has-mix", loaded);
+            labels.forEach((el) =>
+                el.setAttribute(
+                    "aria-pressed",
+                    String(el.dataset.mix === id),
+                ),
+            );
+            const playing = !audio.paused;
+            root.classList.toggle("is-playing", playing);
+            toggle.setAttribute(
+                "aria-label",
+                playing ? "Pause the mix" : "Play the mix",
+            );
+
+            if (!scrubbing) {
+                const total = Number.isFinite(audio.duration)
+                    ? audio.duration
+                    : 0;
+                paint(audio.currentTime, total);
+            }
+
+            if (loaded && !revealed) {
+                revealed = true;
+                flicker(controls.children, { sort: false, step: 0.05 });
+            }
+            if (!loaded) revealed = false;
+        };
+
+        labels.forEach((el) =>
+            el.addEventListener("click", () => {
+                const id = el.dataset.mix;
+                if (!id) return;
+                // Clicking the mix that is already loaded toggles it rather
+                // than restarting from the top.
+                if (id === currentMixId()) toggleMix();
+                else playMix(id);
+                sync();
+            }),
+        );
+
+        toggle.addEventListener("click", () => {
+            toggleMix();
+            sync();
+        });
+
+        // ── Scrubbing ────────────────────────────────────────────────────
+        // Pointer events cover mouse and touch in one path; capture keeps the
+        // drag alive when the finger leaves the 1px rule.
+        scrub.addEventListener("pointerdown", (e) => {
+            if (!Number.isFinite(audio.duration)) return;
+            scrubbing = true;
+            scrub.setPointerCapture(e.pointerId);
+            const t = ratioAt(e.clientX) * audio.duration;
+            paint(t, audio.duration);
+        });
+        scrub.addEventListener("pointermove", (e) => {
+            if (!scrubbing) return;
+            const t = ratioAt(e.clientX) * audio.duration;
+            paint(t, audio.duration);
+        });
+        const endScrub = (e: PointerEvent) => {
+            if (!scrubbing) return;
+            scrubbing = false;
+            seekMix(ratioAt(e.clientX) * audio.duration);
+            sync();
+        };
+        scrub.addEventListener("pointerup", endScrub);
+        scrub.addEventListener("pointercancel", () => {
+            scrubbing = false;
+            sync();
+        });
+
+        // Keyboard seek, matching the lock screen's own offsets.
+        scrub.addEventListener("keydown", (e) => {
+            const step =
+                e.key === "ArrowLeft" ? -15 : e.key === "ArrowRight" ? 30 : 0;
+            if (!step) return;
+            e.preventDefault();
+            seekMix(audio.currentTime + step);
+            sync();
+        });
+
+        on("play", sync);
+        on("pause", sync);
+        on("ended", sync);
+        on("timeupdate", sync);
+        on("durationchange", sync);
+        on("loadedmetadata", sync);
+
+        // ── Right edge ───────────────────────────────────────────────────
+        // Stop the bar short of the currency switcher in the opposite corner.
+        // That element sizes itself in JS — it hugs whichever market is
+        // selected and animates out to the longest name while its list is
+        // open — so a ResizeObserver tracks it, transition included, rather
+        // than measuring once. Under `md` the CSS right inset takes over and
+        // this is inert.
+        const currency = document.getElementById("currency-select");
+        if (currency) {
+            const fitRight = () =>
+                root.style.setProperty(
+                    "--mix-right",
+                    `calc(${currency.getBoundingClientRect().width}px)`,
+                );
+            const ro = new ResizeObserver(fitRight);
+            ro.observe(currency);
+            ac.signal.addEventListener("abort", () => ro.disconnect());
+            fitRight();
+        }
+
+        // ── Mobile offset ────────────────────────────────────────────────
+        // Park the bar one gap above the navbar, which is taller whenever the
+        // mobile menu is open. The navbar dispatches a synthetic resize when
+        // that happens, so this stays in step for free.
+        const nav = document.getElementById("navbar");
+        const measure = () => {
+            if (!nav) return;
+            root.style.setProperty(
+                "--mix-bottom",
+                `${nav.offsetHeight + 2}px`,
+            );
+        };
+        window.addEventListener("resize", measure, { signal: ac.signal });
+        measure();
+
+        sync();
+    });
+</script>
